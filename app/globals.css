@@ -1,0 +1,136 @@
+/* app/globals.css - Global styles for Eve v2 */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+@layer base {
+  :root {
+    --background: 255 255 255; /* white */
+    --foreground: 0 0 0; /* black */
+  }
+
+  * {
+    @apply border-gray-200;
+  }
+
+  body {
+    @apply bg-white text-black;
+  }
+}
+
+/* Custom utilities */
+@layer utilities {
+  /* Smooth scrolling */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Custom focus ring (black instead of blue) */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2;
+  }
+}
+
+/* Component styles */
+@layer components {
+  /* Button base */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus-ring;
+  }
+
+  .btn-primary {
+    @apply bg-black text-white hover:bg-gray-800 active:bg-gray-900;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-black border border-gray-300 hover:bg-gray-50 active:bg-gray-100;
+  }
+
+  /* Input base */
+  .input {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus-ring;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-white border border-gray-200 rounded-xl shadow-sm;
+  }
+
+  /* Slider (for mood controls) */
+  input[type="range"] {
+    @apply w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    @apply appearance-none w-5 h-5 bg-black rounded-full cursor-pointer hover:scale-110 transition-transform;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    @apply w-5 h-5 bg-black rounded-full cursor-pointer hover:scale-110 transition-transform;
+  }
+
+  /* Chat bubbles */
+  .chat-bubble {
+    @apply p-4 rounded-2xl max-w-[80%] break-words;
+  }
+
+  .chat-bubble-user {
+    @apply bg-black text-white ml-auto;
+  }
+
+  .chat-bubble-assistant {
+    @apply bg-gray-100 text-black mr-auto;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Loading spinner */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
