@@ -5,7 +5,6 @@
 import { useState } from 'react';
 import { Upload, CheckCircle, XCircle, Loader } from 'lucide-react';
 import ShareLinkImport from './ShareLinkImport';
-import AgentCustomization from './AgentCustomization';
 
 interface ImportFlowProps {
   userId: string;
@@ -19,7 +18,6 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [importMethod, setImportMethod] = useState<'file' | 'link'>('link');
-  const [showCustomization, setShowCustomization] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -96,8 +94,8 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
     }
   };
 
-  // Success state - show customization
-  if (result && !showCustomization) {
+  // Success state
+  if (result) {
     return (
       <div className="max-w-2xl mx-auto p-8">
         <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center">
@@ -132,56 +130,18 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <button
-              onClick={() => setShowCustomization(true)}
-              className="flex-1 bg-purple-600 text-white px-8 py-4 rounded-xl font-medium hover:bg-purple-700 transition-all"
-            >
-              ✨ Customize Agent Personality
-            </button>
-            
-            <button
-              onClick={() => onComplete(result.agent_id)}
-              className="flex-1 bg-black text-white px-8 py-4 rounded-xl font-medium hover:bg-gray-800 transition-all"
-            >
-              Use Default →
-            </button>
-          </div>
+          <button
+            onClick={() => onComplete(result.agent_id)}
+            className="w-full bg-black text-white px-8 py-4 rounded-xl font-medium hover:bg-gray-800 transition-all"
+          >
+            Continue to Chat →
+          </button>
 
           <p className="text-xs text-gray-500 mt-4">
-            Customize now or use the default "Eve" personality
+            Customize your agent's name and personality anytime in Settings → ✨ Agent
           </p>
         </div>
       </div>
-    );
-  }
-
-  // Customization step
-  if (result && showCustomization) {
-    return (
-      <AgentCustomization
-        suggestedName="Eve"
-        suggestedPrompt={result.inferredPersonality}
-        messageCount={result.imported?.messages || 0}
-        onSave={async (name, prompt, voiceId) => {
-          // Update agent with custom name and prompt
-          const response = await fetch('/api/update-agent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              agentId: result.agent_id,
-              name,
-              prompt,
-              defaultVoiceId: voiceId,
-            }),
-          });
-
-          if (response.ok) {
-            onComplete(result.agent_id);
-          }
-        }}
-        onSkip={() => onComplete(result.agent_id)}
-      />
     );
   }
 
