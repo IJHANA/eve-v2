@@ -14,6 +14,7 @@ import MoodControl from './components/MoodControl';
 import VoiceControl from './components/VoiceControl';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
+import SettingsPanel from './components/SettingsPanel';
 import { LogOut, Settings } from 'lucide-react';
 
 export default function Home() {
@@ -323,6 +324,18 @@ export default function Home() {
             />
           </main>
         </div>
+
+        {/* Settings Panel Modal */}
+        {showSettings && (
+          <SettingsPanel
+            userId={session.user.id}
+            onClose={() => setShowSettings(false)}
+            onImportComplete={(agentId) => {
+              setShowSettings(false);
+              // Optionally refresh page or show success message
+            }}
+          />
+        )}
       </div>
     </>
   );
