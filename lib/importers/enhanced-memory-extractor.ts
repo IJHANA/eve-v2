@@ -111,16 +111,19 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
         }
         
         // ===== DATES & TRIP DURATION =====
-        // July 7-31 trip or any month range
-        const tripMatch = content.match(/(?:from|staying).*?(January|February|March|April|May|June|July|August|September|October|November|December)\s*(\d+).*?(?:through|to|-|until).*?(January|February|March|April|May|June|July|August|September|October|November|December)\s*(\d+)/i);
+        // July 7-31 trip or any month range (handles parentheses too)
+        const tripMatch = content.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s*(\d+)[-–]\s*(\d+)/i);
         if (tripMatch) {
           const key = 'trip_dates';
           if (!seenMemories.has(key)) {
+            const month = tripMatch[1];
+            const startDay = tripMatch[2];
+            const endDay = tripMatch[3];
             memories.push({
               id: crypto.randomUUID(),
               agent_id: '',
               type: 'fact',
-              content: `Trip dates: ${tripMatch[1]} ${tripMatch[2]} through ${tripMatch[3]} ${tripMatch[4]}, 2026`,
+              content: `Trip dates: ${month} ${startDay} through ${month} ${endDay}, 2026`,
               importance_score: 0.9,
               privacy: 'heir_only',
               created_at: new Date().toISOString(),
@@ -495,6 +498,53 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
             created_at: new Date().toISOString(),
           });
           seenMemories.add('song_kasabian');
+        }
+        
+        // Old Wellington (also extract from assistant messages)
+        if (content.match(/Old Wellington/i) && !seenMemories.has('restaurant_oldwellington')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Restaurant: The Old Wellington (steak and ale pie)',
+            importance_score: 0.85,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('restaurant_oldwellington');
+        }
+        
+        // Trip dates from assistant (July 7-31, 2025)
+        const tripDateMatch = content.match(/(July|June|August)\s*(\d+)[-–]\s*(\d+),?\s*202[56]/i);
+        if (tripDateMatch && !seenMemories.has('trip_dates')) {
+          const month = tripDateMatch[1];
+          const startDay = tripDateMatch[2];
+          const endDay = tripDateMatch[3];
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'fact',
+            content: `Trip dates: ${month} ${startDay} through ${endDay}, 2025`,
+            importance_score: 0.9,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('trip_dates');
+        }
+        
+        // Profession from assistant (55-year-old art gallery owner)
+        const profMatch = content.match(/(\d+)[-\s]year[-\s]old\s+art\s+gallery\s+owner/i);
+        if (profMatch && !seenMemories.has('profession')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'fact',
+            content: `Profession: ${profMatch[1]}-year-old art gallery owner and tech entrepreneur`,
+            importance_score: 0.95,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('profession');
         }
         
         // Extract context that wasn't corrected

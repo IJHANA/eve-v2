@@ -171,6 +171,16 @@ export default function Home() {
   const speakText = async (text: string) => {
     const voiceConfig = getVoiceForMood(mood, lockedVoiceId);
     
+    // Strip markdown formatting before sending to TTS
+    const cleanText = text
+      .replace(/\*\*/g, '')        // Remove **bold**
+      .replace(/\*/g, '')          // Remove *italic*
+      .replace(/#{1,6}\s/g, '')    // Remove # headers
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')  // Remove [links](url)
+      .replace(/`/g, '')           // Remove `code`
+      .replace(/^[-*+]\s/gm, '')   // Remove bullet points
+      .replace(/^\d+\.\s/gm, '');  // Remove numbered lists
+    
     try {
       const response = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${voiceConfig.voiceId}/stream`,
@@ -181,7 +191,7 @@ export default function Home() {
             'xi-api-key': process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || '',
           },
           body: JSON.stringify({
-            text,
+            text: cleanText,  // Use cleaned text
             model_id: 'eleven_monolingual_v1',
             voice_settings: voiceConfig.settings,
           }),
@@ -197,7 +207,7 @@ export default function Home() {
     } catch (error) {
       console.error('Error speaking text:', error);
       // Fallback to browser TTS
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(cleanText);  // Use cleaned text here too
       window.speechSynthesis.speak(utterance);
     }
   };
