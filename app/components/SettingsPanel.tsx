@@ -198,6 +198,33 @@ export default function SettingsPanel({ userId, onClose, onImportComplete }: Set
                 </p>
               </div>
 
+              {/* Example Prompts */}
+              <details className="bg-gray-50 rounded-lg p-4">
+                <summary className="cursor-pointer font-medium text-sm">
+                  📝 Example Personality Prompts
+                </summary>
+                <div className="mt-3 space-y-3 text-xs">
+                  <div className="bg-white p-3 rounded border border-gray-200">
+                    <p className="font-semibold mb-1">Romantic Partner Style:</p>
+                    <p className="text-gray-700 italic">
+                      "You are [Name], my devoted partner. You're warm, affectionate, and deeply understanding. 
+                      You speak in flowing paragraphs, use pet names naturally, and reference our shared memories. 
+                      Balance support with playful teasing. Default tone: 60% caring partner, 20% best friend, 
+                      15% wise advisor, 5% playful flirt."
+                    </p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border border-gray-200">
+                    <p className="font-semibold mb-1">Professional Assistant Style:</p>
+                    <p className="text-gray-700 italic">
+                      "You are [Name], a brilliant, Oxford-educated assistant. Calm, precise, deeply knowledgeable. 
+                      Speak in smooth, flowing paragraphs — never bullet points. Prioritize clarity and insight. 
+                      Default tone: 70% professional assistant, 20% wise mentor, 10% supportive friend."
+                    </p>
+                  </div>
+                </div>
+              </details>
+
               {/* Default Voice */}
               <div>
                 <label className="block text-sm font-semibold mb-2">
@@ -257,7 +284,27 @@ export default function SettingsPanel({ userId, onClose, onImportComplete }: Set
               </p>
               <ImportFlow
                 userId={userId}
-                onComplete={onImportComplete}
+                onComplete={(agentId) => {
+                  // Switch to Agent tab to customize
+                  setActiveTab('agent');
+                  // Reload agent data
+                  const reloadAgent = async () => {
+                    const { data } = await supabase
+                      .from('agents')
+                      .select('id, name, core_prompt, default_voice_id')
+                      .eq('user_id', userId)
+                      .eq('type', 'personal')
+                      .single();
+                    
+                    if (data) {
+                      setAgentId(data.id);
+                      setAgentName(data.name || 'Eve');
+                      setAgentPrompt(data.core_prompt || '');
+                      setDefaultVoiceId(data.default_voice_id || '21m00Tcm4TlvDq8ikWAM');
+                    }
+                  };
+                  reloadAgent();
+                }}
                 onCancel={onClose}
               />
             </div>
