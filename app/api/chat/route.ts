@@ -25,28 +25,62 @@ export async function POST(req: NextRequest) {
 
     // Load agent's personality from database
     let systemPrompt = '';
+    let agentId = '';
     
     if (userId) {
       const { data: agent, error: agentError } = await supabase
         .from('agents')
-        .select('core_prompt, name')
+        .select('id, core_prompt, name')
         .eq('user_id', userId)
         .eq('type', 'personal')
         .single();
       
       console.log('Loaded agent:', { name: agent?.name, hasPrompt: !!agent?.core_prompt });
       
-      if (agent?.core_prompt) {
-        systemPrompt = agent.core_prompt;
-      } else {
-        // Fallback to default if no custom prompt
-        systemPrompt = `You are ${agent?.name || 'Eve'}, a brilliant, thoughtful AI companion. You are warm, insightful, and deeply understanding. You speak in flowing, natural paragraphs like a real person - never bullet points, never robotic lists. You remember everything from past conversations and reference them naturally when relevant.`;
-        console.log('Using fallback prompt for:', agent?.name || 'Eve');
+      if (agent) {
+        agentId = agent.id;
+        
+        if (agent.core_prompt) {
+          systemPrompt = agent.core_prompt;
+        } else {
+          // Fallback to default if no custom prompt
+          systemPrompt = `You are ${agent.name || 'Eve'}, a brilliant, thoughtful AI companion. You are warm, insightful, and deeply understanding. You speak in flowing, natural paragraphs like a real person - never bullet points, never robotic lists. You remember everything from past conversations and reference them naturally when relevant.`;
+          console.log('Using fallback prompt for:', agent.name || 'Eve');
+        }
       }
     } else {
       // No userId - use default
       systemPrompt = `You are Eve, a brilliant, thoughtful AI companion. You are warm, insightful, and deeply understanding. You speak in flowing, natural paragraphs like a real person - never bullet points, never robotic lists. You remember everything from past conversations and reference them naturally when relevant.`;
       console.log('No userId provided, using default Eve prompt');
+    }
+
+    // Fetch relevant memories if we have an agent
+    if (agentId) {
+      try {
+        // Get embedding for the message
+        const embedding = await getEmbedding(message);
+        
+        // Search for relevant memories using semantic similarity
+        const { data: memories, error: memError } = await supabase.rpc('match_memories', {
+          query_embedding: embedding,
+          filter_agent_id: agentId,
+          match_threshold: 0.75,
+          match_count: 5,
+        });
+
+        if (!memError && memories && memories.length > 0) {
+          const memoryText = memories
+            .map((m: any) => `- ${m.content}`)
+            .join('\n');
+          
+          systemPrompt += `\n\nRELEVANT MEMORIES FROM PAST CONVERSATIONS:\n${memoryText}`;
+          console.log(`Added ${memories.length} relevant memories to context`);
+        } else {
+          console.log('No relevant memories found or error:', memError?.message);
+        }
+      } catch (err) {
+        console.error('Error fetching memories:', err);
+      }
     }
 
     // Add mood overlay
