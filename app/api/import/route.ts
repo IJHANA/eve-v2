@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Import memories with embeddings
+    // Import memories with embeddings (insert individually to handle errors)
     if (importedData.memories.length > 0) {
       console.log(`Generating embeddings for ${importedData.memories.length} memories...`);
       
@@ -209,16 +209,34 @@ export async function POST(req: NextRequest) {
         console.log(`Generated embeddings for batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(importedData.memories.length / batchSize)}`);
       }
 
-      const { error: memError } = await supabase
-        .from('memories')
-        .insert(memoriesToInsert);
-
-      if (memError) {
-        console.error('Error importing memories:', memError);
-        // Don't fail the whole import if memories fail
-      } else {
-        console.log(`Imported ${memoriesToInsert.length} memories`);
+      // Insert memories one at a time to avoid transaction rollback
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const memory of memoriesToInsert) {
+        try {
+          const { error: memError } = await supabase
+            .from('memories')
+            .insert([memory]); // Insert one at a time
+          
+          if (memError) {
+            console.error(`Failed to insert memory (type: ${memory.type}):`, memError.message);
+            failCount++;
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          console.error(`Exception inserting memory:`, err);
+          failCount++;
+        }
       }
+
+      console.log(`✅ Imported ${successCount} memories, ❌ ${failCount} failed`);
+      
+      // Store actual success count for response
+      const actualMemoriesImported = successCount;
+    } else {
+      const actualMemoriesImported = 0;
     }
 
     // Return success
@@ -231,7 +249,7 @@ export async function POST(req: NextRequest) {
         conversations: importedConversationCount,
         conversationsSkipped: skippedConversationCount,
         messages: importedData.metadata.messageCount,
-        memories: importedData.memories.length,
+        memories: importedData.memories.length, // Total attempted
       },
     });
 

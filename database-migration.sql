@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS memories (
   conversation_id UUID REFERENCES conversations(id) ON DELETE SET NULL,
   
   -- Memory data
-  type TEXT CHECK (type IN ('fact', 'preference', 'story', 'emotion', 'timeline_event')),
+  type TEXT CHECK (type IN ('fact', 'preference', 'story', 'emotion', 'timeline_event', 'experience', 'context')),
   content TEXT NOT NULL,
   
   -- Semantic search
