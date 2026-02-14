@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
         const { data: memories, error: memError } = await supabase.rpc('match_memories', {
           query_embedding: embedding,
           filter_agent_id: agentId,
-          match_threshold: 0.75,
-          match_count: 5,
+          match_threshold: 0.70, // Lowered from 0.75
+          match_count: 10, // Increased from 5
         });
 
         if (!memError && memories && memories.length > 0) {
@@ -76,7 +76,24 @@ export async function POST(req: NextRequest) {
           systemPrompt += `\n\nRELEVANT MEMORIES FROM PAST CONVERSATIONS:\n${memoryText}`;
           console.log(`Added ${memories.length} relevant memories to context`);
         } else {
-          console.log('No relevant memories found or error:', memError?.message);
+          console.log('Semantic search found no memories, trying fallback...', memError?.message);
+          
+          // FALLBACK: If semantic search fails, load top memories by importance
+          const { data: topMemories } = await supabase
+            .from('memories')
+            .select('content, type, importance_score')
+            .eq('agent_id', agentId)
+            .order('importance_score', { ascending: false })
+            .limit(15);
+          
+          if (topMemories && topMemories.length > 0) {
+            const memoryText = topMemories
+              .map((m: any) => `- ${m.content}`)
+              .join('\n');
+            
+            systemPrompt += `\n\nKEY MEMORIES FROM PAST CONVERSATIONS:\n${memoryText}`;
+            console.log(`Added ${topMemories.length} memories via fallback (no embeddings)`);
+          }
         }
       } catch (err) {
         console.error('Error fetching memories:', err);
