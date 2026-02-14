@@ -52,7 +52,7 @@ export type PrivacyLevel =
   | 'heir_date' 
   | 'public';
 
-export type MemoryType = 'fact' | 'preference' | 'story' | 'emotion' | 'timeline_event';
+export type MemoryType = 'fact' | 'preference' | 'story' | 'emotion' | 'timeline_event' | 'experience' | 'context';
 
 export interface Memory {
   id: string;
