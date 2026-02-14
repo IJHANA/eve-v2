@@ -37,84 +37,12 @@ export function prepareConversationForMemoryExtraction(conversations: Conversati
 
 /**
  * Basic regex-based extraction (fallback)
- * This is the old method - kept for backwards compatibility
+ * DEPRECATED: Now using enhanced-memory-extractor.ts instead
+ * Kept for backwards compatibility but returns empty array
  */
 export function extractFactsFromConversations(conversations: Conversation[]): Memory[] {
-  const memories: Memory[] = [];
-  const seenFacts = new Set<string>();
-
-  for (const conv of conversations) {
-    for (const msg of conv.messages) {
-      if (msg.role === 'user') {
-        // Extract name
-        const nameMatch = msg.content.match(/my name is (\w+)/i);
-        if (nameMatch && !seenFacts.has('name')) {
-          memories.push({
-            id: crypto.randomUUID(),
-            agent_id: '', // Will be set later
-            type: 'fact',
-            content: `User's name: ${nameMatch[1]}`,
-            importance_score: 0.9,
-            privacy: 'heir_only',
-            created_at: new Date().toISOString(),
-          });
-          seenFacts.add('name');
-        }
-
-        // Extract location/travel plans
-        const locationMatch = msg.content.match(/(?:staying|visiting|going to|live in|am in|from) ([A-Z][a-zA-Z\s]+?)(?:\.|,|from|in|on)/i);
-        if (locationMatch && !seenFacts.has(`loc_${locationMatch[1]}`)) {
-          memories.push({
-            id: crypto.randomUUID(),
-            agent_id: '',
-            type: 'fact',
-            content: `Location/Travel: ${locationMatch[1].trim()}`,
-            importance_score: 0.8,
-            privacy: 'heir_only',
-            created_at: new Date().toISOString(),
-          });
-          seenFacts.add(`loc_${locationMatch[1]}`);
-        }
-
-        // Extract dates/events
-        const dateMatch = msg.content.match(/(?:on|from|until) (?:July|August|September|October|November|December|January|February|March|April|May|June) \d+/i);
-        if (dateMatch && !seenFacts.has(`date_${dateMatch[0]}`)) {
-          const fullContext = msg.content.substring(0, 200);
-          memories.push({
-            id: crypto.randomUUID(),
-            agent_id: '',
-            type: 'experience',
-            content: `Event/Date: ${fullContext}`,
-            importance_score: 0.7,
-            privacy: 'heir_only',
-            created_at: new Date().toISOString(),
-          });
-          seenFacts.add(`date_${dateMatch[0]}`);
-        }
-
-        // Extract preferences (I love/like/enjoy/want)
-        const preferenceMatch = msg.content.match(/I (?:love|like|enjoy|want|prefer) ([a-zA-Z\s]+?)(?:\.|,|and|but|$)/i);
-        if (preferenceMatch) {
-          const preference = preferenceMatch[1].trim();
-          const key = `pref_${preference.toLowerCase().substring(0, 20)}`;
-          if (!seenFacts.has(key) && preference.length > 2) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: `User likes: ${preference}`,
-              importance_score: 0.6,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenFacts.add(key);
-          }
-        }
-      }
-    }
-  }
-
-  return memories;
+  // Return empty - using enhanced extractor instead
+  return [];
 }
 
 /**
