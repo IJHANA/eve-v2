@@ -299,25 +299,10 @@ export default function SettingsPanel({ userId, onClose, onImportComplete, initi
               <ImportFlow
                 userId={userId}
                 onComplete={(agentId) => {
-                  // Switch to Agent tab to customize
-                  setActiveTab('agent');
-                  // Reload agent data
-                  const reloadAgent = async () => {
-                    const { data } = await supabase
-                      .from('agents')
-                      .select('id, name, core_prompt, default_voice_id')
-                      .eq('user_id', userId)
-                      .eq('type', 'personal')
-                      .single();
-                    
-                    if (data) {
-                      setAgentId(data.id);
-                      setAgentName(data.name || 'Eve');
-                      setAgentPrompt(data.core_prompt || '');
-                      setDefaultVoiceId(data.default_voice_id || '21m00Tcm4TlvDq8ikWAM');
-                    }
-                  };
-                  reloadAgent();
+                  // Close settings panel and return to chat
+                  onClose();
+                  // Reload the page to refresh agent data
+                  window.location.reload();
                 }}
                 onCancel={onClose}
               />

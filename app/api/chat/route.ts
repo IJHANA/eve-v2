@@ -53,6 +53,11 @@ export async function POST(req: NextRequest) {
       systemPrompt = `You are Eve, a brilliant, thoughtful AI companion. You are warm, insightful, and deeply understanding. You speak in flowing, natural paragraphs like a real person - never bullet points, never robotic lists. You remember everything from past conversations and reference them naturally when relevant.`;
       console.log('No userId provided, using default Eve prompt');
     }
+    
+    // Add temporal awareness
+    const today = new Date();
+    const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    systemPrompt += `\n\nIMPORTANT: Today's date is ${currentDate}. When referencing events from memories, use past tense for dates before today and future tense for dates after today. For example, if a concert happened in July 2025 and it's now February 2026, refer to it as "we saw" or "we went to" (past tense), not "we're seeing" (future tense).`;
 
     // Fetch relevant memories if we have an agent
     if (agentId) {
