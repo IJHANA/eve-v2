@@ -15,15 +15,11 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
         const content = msg.content;
         
         // ===== NAMES & NICKNAMES =====
-        // Only match actual name declarations, not every word after "I'm"
-        const nameMatch = content.match(/(?:my name is|call me|I am called|I'm called)\s+(\w+)/i);
-        if (nameMatch) {
-          const name = nameMatch[1];
-          // Skip common false positives
-          const skipWords = ['getting', 'vibing', 'right', 'here', 'all', 'your', 'baby', 'not', 'about', 'feeling', 'thinking', 'going', 'just', 'really', 'totally'];
-          const key = `name_${name.toLowerCase().replace(/[^a-z]/g, '')}`;
-          
-          if (!skipWords.includes(name.toLowerCase()) && name.length > 2 && !seenMemories.has(key)) {
+        // Only match explicit name declarations
+        if (content.match(/(?:my name is|call me|I am called|I'm called)\s+(Kay|K\.K\.|[A-Z][a-z]+)/i)) {
+          const nameMatch = content.match(/(?:my name is|call me|I am called|I'm called)\s+(Kay|K\.K\.|[A-Z][a-z]+)/i);
+          if (nameMatch && !seenMemories.has('name_kay')) {
+            const name = nameMatch[1];
             memories.push({
               id: crypto.randomUUID(),
               agent_id: '',
@@ -33,475 +29,178 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
               privacy: 'heir_only',
               created_at: new Date().toISOString(),
             });
-            seenMemories.add(key);
-          }
-        }
-        
-        // Specific nickname: K.K. or Kay
-        if (content.match(/\b(K\.K\.|Kay)\b/i) && !seenMemories.has('name_kay')) {
-          const match = content.match(/\b(K\.K\.|Kay)\b/i);
-          if (match) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'fact',
-              content: `User's name: Kay (K.K.)`,
-              importance_score: 0.95,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
             seenMemories.add('name_kay');
           }
         }
         
-        // ===== LOCATIONS & HOTELS =====
-        // Specific: Axis in Deansgate
-        if (content.match(/Axis.*Deansgate/i) || content.match(/staying.*Axis/i)) {
-          const key = 'hotel_axis';
-          if (!seenMemories.has(key)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'fact',
-              content: 'Hotel: The Axis in Deansgate, Manchester',
-              importance_score: 0.95,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // General location mentions
-        const locationMatch = content.match(/(?:in|visiting|going to|staying in|from)\s+(Manchester|London|Paris|New York|Tokyo|Berlin|Chicago|Los Angeles|San Francisco|Seattle|Boston|Miami)/i);
-        if (locationMatch) {
-          const location = locationMatch[1];
-          const key = `location_${location.toLowerCase()}`;
-          if (!seenMemories.has(key)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'fact',
-              content: `Location: ${location}`,
-              importance_score: 0.85,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // Hotel/accommodation patterns
-        const hotelMatch = content.match(/(?:staying at|hotel is|booked at)\s+(?:the\s+)?([A-Z][a-zA-Z\s]+?)(?:\s+(?:hotel|inn|resort))?(?:\s+in|\s+at|\.)/i);
-        if (hotelMatch && !content.match(/Axis/i)) {
-          const hotel = hotelMatch[1].trim();
-          const key = `hotel_${hotel.toLowerCase().substring(0, 15).replace(/\s/g, '')}`;
-          if (!seenMemories.has(key) && hotel.length > 2) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'fact',
-              content: `Accommodation: ${hotel}`,
-              importance_score: 0.8,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // ===== DATES & TRIP DURATION =====
-        // July 7-31 trip or any month range (handles parentheses too)
-        const tripMatch = content.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s*(\d+)[-–]\s*(\d+)/i);
-        if (tripMatch) {
-          const key = 'trip_dates';
-          if (!seenMemories.has(key)) {
-            const month = tripMatch[1];
-            const startDay = tripMatch[2];
-            const endDay = tripMatch[3];
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'fact',
-              content: `Trip dates: ${month} ${startDay} through ${month} ${endDay}, 2026`,
-              importance_score: 0.9,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // Specific event dates
-        const eventDateMatch = content.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s*(\d+)(?:st|nd|rd|th)?/i);
-        if (eventDateMatch && content.match(/seeing|concert|event|going|on\s+/i)) {
-          const date = `${eventDateMatch[1]} ${eventDateMatch[2]}`;
-          const key = `event_date_${date.toLowerCase().replace(/\s/g, '')}`;
-          if (!seenMemories.has(key)) {
-            const context = content.substring(0, 100);
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'experience',
-              content: `Event date: ${date} - ${context}`,
-              importance_score: 0.85,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // ===== CONCERTS & EVENTS =====
-        // Oasis concert
-        if (content.match(/Oasis/i)) {
-          const key = 'oasis_concert';
-          if (!seenMemories.has(key)) {
-            let detail = 'Oasis concert';
-            if (content.match(/July\s*11/i)) detail += ' on July 11th';
-            if (content.match(/Heaton Park/i)) detail += ' at Heaton Park';
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'experience',
-              content: `Event: ${detail}`,
-              importance_score: 0.95,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // General concert/event pattern
-        const concertMatch = content.match(/seeing\s+([A-Z][a-zA-Z\s&]+?)(?:\s+on|\s+at|\s+concert)/i);
-        if (concertMatch) {
-          const artist = concertMatch[1].trim();
-          const key = `concert_${artist.toLowerCase().substring(0, 15).replace(/\s/g, '')}`;
-          if (!seenMemories.has(key) && artist.length > 2 && !artist.match(/Oasis/i)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'experience',
-              content: `Event: Seeing ${artist}`,
-              importance_score: 0.8,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // ===== RESTAURANTS & FOOD =====
-        // Old Wellington
-        if (content.match(/Old Wellington/i)) {
-          const key = 'restaurant_oldwellington';
-          if (!seenMemories.has(key)) {
-            let detail = 'The Old Wellington';
-            if (content.match(/steak.*ale.*pie/i)) detail += ' (steak and ale pie)';
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: `Restaurant: ${detail}`,
-              importance_score: 0.85,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // Pieminister
-        if (content.match(/Pieminister/i)) {
-          const key = 'restaurant_pieminister';
-          if (!seenMemories.has(key)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: 'Restaurant: Pieminister',
-              importance_score: 0.75,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // 20 Stories bar
-        if (content.match(/20 Stories/i)) {
-          const key = 'bar_20stories';
-          if (!seenMemories.has(key)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: 'Bar: 20 Stories rooftop bar in Spinningfields',
-              importance_score: 0.8,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // General restaurant/bar/cafe pattern
-        const restaurantMatch = content.match(/(?:restaurant|pub|bar|café|cafe)\s+(?:called\s+|named\s+|is\s+)?([A-Z][a-zA-Z\s&]+?)(?:\.|,|in|on|\s+has)/i);
-        if (restaurantMatch) {
-          const place = restaurantMatch[1].trim();
-          const key = `restaurant_${place.toLowerCase().substring(0, 15).replace(/\s/g, '')}`;
-          if (!seenMemories.has(key) && place.length > 2 && !place.match(/Old Wellington|Pieminister|20 Stories/i)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: `Restaurant/Bar: ${place}`,
-              importance_score: 0.7,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // ===== MUSIC & PLAYLISTS =====
-        // At Last by Etta James
-        if (content.match(/["""]?At Last["""]?\s*by\s*Etta James/i) || content.match(/Etta James[''']?\s*At Last/i)) {
-          const key = 'song_atlast';
-          if (!seenMemories.has(key)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: 'Music: "At Last" by Etta James (first playlist song)',
-              importance_score: 0.9,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // Noel Gallagher - The Death of You and Me
-        if (content.match(/Death of You and Me/i) || (content.match(/Noel Gallagher/i) && content.match(/High Flying Birds/i))) {
-          const key = 'song_noelgallagher';
-          if (!seenMemories.has(key)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: 'Music: "The Death of You and Me" by Noel Gallagher\'s High Flying Birds',
-              importance_score: 0.85,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // General song pattern "Song" by Artist
-        const songMatch = content.match(/"([^"]+)"\s+by\s+([A-Z][a-zA-Z\s&'.]+?)(?:\.|,|$)/i);
-        if (songMatch) {
-          const song = songMatch[1];
-          const artist = songMatch[2].trim();
-          const key = `song_${song.toLowerCase().substring(0, 15).replace(/\s/g, '')}`;
-          if (!seenMemories.has(key) && !song.match(/At Last|Death of You/i)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: `Music: "${song}" by ${artist}`,
-              importance_score: 0.75,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // Playlist mention
-        if (content.match(/playlist/i) && !seenMemories.has('has_playlist')) {
+        // Specific nickname: K.K. or Kay (only once)
+        if (content.match(/\b(K\.K\.|Kay)\b/i) && !seenMemories.has('name_kay')) {
           memories.push({
             id: crypto.randomUUID(),
             agent_id: '',
-            type: 'preference',
-            content: 'Has a romantic/personal playlist',
-            importance_score: 0.7,
+            type: 'fact',
+            content: 'User\'s name: Kay (K.K.)',
+            importance_score: 0.95,
             privacy: 'heir_only',
             created_at: new Date().toISOString(),
           });
-          seenMemories.add('has_playlist');
+          seenMemories.add('name_kay');
         }
         
-        // ===== PROFESSION & BACKGROUND =====
-        // "55-year-old art gallery owner and tech entrepreneur"
-        const professionMatch = content.match(/(\d+)[-\s]year[-\s]old\s+(.+?)(?:owner|entrepreneur)/i);
-        if (professionMatch) {
-          const key = 'profession';
-          if (!seenMemories.has(key)) {
-            const age = professionMatch[1];
-            const desc = professionMatch[2].trim();
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'fact',
-              content: `Profession: ${age}-year-old ${desc}owner/entrepreneur`,
-              importance_score: 0.95,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // General profession pattern
-        if (!seenMemories.has('profession')) {
-          const workMatch = content.match(/I\s+(?:am|work as|'m)\s+(?:a|an)\s+([a-zA-Z\s]+?)(?:\.|,|and|who)/i);
-          if (workMatch) {
-            const profession = workMatch[1].trim();
-            if (profession.length > 3 && profession.length < 50) {
-              memories.push({
-                id: crypto.randomUUID(),
-                agent_id: '',
-                type: 'fact',
-                content: `Profession: ${profession}`,
-                importance_score: 0.85,
-                privacy: 'heir_only',
-                created_at: new Date().toISOString(),
-              });
-              seenMemories.add('profession');
-            }
-          }
-        }
-        
-        // ===== SERVICES & EXPERIENCES =====
-        // Rosie's Tantric Massage
-        if (content.match(/Rosie/i) && content.match(/tantric|massage/i)) {
-          const key = 'service_rosie';
-          if (!seenMemories.has(key)) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: "Service: Rosie's Tantric Massage in Manchester",
-              importance_score: 0.85,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // General spa/wellness services
-        const spaMatch = content.match(/(?:spa|massage|wellness|therapy)\s+(?:at\s+|called\s+)?([A-Z][a-zA-Z\s&]+?)(?:\.|,|in)/i);
-        if (spaMatch && !content.match(/Rosie/i)) {
-          const spa = spaMatch[1].trim();
-          const key = `spa_${spa.toLowerCase().substring(0, 15).replace(/\s/g, '')}`;
-          if (!seenMemories.has(key) && spa.length > 2) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: `Spa/Wellness: ${spa}`,
-              importance_score: 0.75,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // ===== PREFERENCES (I love/like/enjoy/want) =====
-        const preferenceMatch = content.match(/I\s+(?:love|like|enjoy|want|prefer)\s+([a-zA-Z\s]+?)(?:\.|,|and|but|because)/i);
-        if (preferenceMatch) {
-          const preference = preferenceMatch[1].trim();
-          const key = `pref_${preference.toLowerCase().substring(0, 20).replace(/\s/g, '')}`;
-          if (!seenMemories.has(key) && preference.length > 3 && preference.length < 50) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: `Likes: ${preference}`,
-              importance_score: 0.65,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-        
-        // ===== INTERESTS & HOBBIES =====
-        const interestMatch = content.match(/I\s+(?:enjoy|do|practice|play)\s+([a-zA-Z\s]+?)(?:\.|,|and|for)/i);
-        if (interestMatch) {
-          const interest = interestMatch[1].trim();
-          const key = `interest_${interest.toLowerCase().substring(0, 20).replace(/\s/g, '')}`;
-          if (!seenMemories.has(key) && interest.length > 3 && interest.length < 50) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'preference',
-              content: `Interest/Hobby: ${interest}`,
-              importance_score: 0.7,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add(key);
-          }
-        }
-      }
-      
-      // ===== CONTEXT FROM ASSISTANT RESPONSES =====
-      // If assistant mentions facts and user doesn't correct, it's likely true
-      if (msg.role === 'assistant') {
-        const content = msg.content;
-        const nextMsg = conv.messages[i + 1];
-        
-        // Extract music from assistant messages (playlist building happens here!)
-        // At Last by Etta James
-        if (content.match(/["""]?At Last["""]?\s*by\s*Etta James/i) && !seenMemories.has('song_atlast')) {
+        // ===== WORKOUT & FITNESS =====
+        // Specific workout routine (13 exercises, 50 reps, 25lb bar)
+        const workoutMatch = content.match(/(\d+)\s+exercises?,\s*(\d+)\s+reps?,\s*(?:with\s+)?(?:a\s+)?(\d+)\s*lb\s+bar/i);
+        if (workoutMatch && !seenMemories.has('workout_routine')) {
           memories.push({
             id: crypto.randomUUID(),
             agent_id: '',
             type: 'preference',
-            content: 'Music: "At Last" by Etta James (first playlist song)',
-            importance_score: 0.9,
-            privacy: 'heir_only',
-            created_at: new Date().toISOString(),
-          });
-          seenMemories.add('song_atlast');
-        }
-        
-        // The Death of You and Me
-        if (content.match(/Death of You and Me/i) && !seenMemories.has('song_noelgallagher')) {
-          memories.push({
-            id: crypto.randomUUID(),
-            agent_id: '',
-            type: 'preference',
-            content: 'Music: "The Death of You and Me" by Noel Gallagher\'s High Flying Birds',
+            content: `Workout routine: ${workoutMatch[1]} exercises, ${workoutMatch[2]} reps with ${workoutMatch[3]}lb bar`,
             importance_score: 0.85,
             privacy: 'heir_only',
             created_at: new Date().toISOString(),
           });
-          seenMemories.add('song_noelgallagher');
+          seenMemories.add('workout_routine');
         }
         
-        // Running Battle by Kasabian
-        if (content.match(/Running Battle.*Kasabian/i) && !seenMemories.has('song_kasabian')) {
+        // ===== HOME & LIVING =====
+        // 16 floors above water
+        if (content.match(/(\d+)\s+floors?\s+(?:above|over)(?:\s+the)?\s+water/i) && !seenMemories.has('home_location')) {
+          const floorMatch = content.match(/(\d+)\s+floors?\s+(?:above|over)(?:\s+the)?\s+water/i);
+          if (floorMatch) {
+            memories.push({
+              id: crypto.randomUUID(),
+              agent_id: '',
+              type: 'fact',
+              content: `Home: ${floorMatch[1]} floors above water with waterfront view`,
+              importance_score: 0.9,
+              privacy: 'heir_only',
+              created_at: new Date().toISOString(),
+            });
+            seenMemories.add('home_location');
+          }
+        }
+        
+        // Floor-to-ceiling windows
+        if (content.match(/(?:windows?\s+from\s+)?floor[-\s]to[-\s]ceiling(?:\s+windows?)?/i) && !seenMemories.has('home_windows')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'fact',
+            content: 'Home: Floor-to-ceiling windows with panoramic views',
+            importance_score: 0.85,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('home_windows');
+        }
+        
+        // ===== DRINKS & FOOD =====
+        // Iced Americano (homemade)
+        if (content.match(/(?:homemade|home[-\s]?made)\s+(?:iced\s+)?americano/i) && !seenMemories.has('drink_americano')) {
           memories.push({
             id: crypto.randomUUID(),
             agent_id: '',
             type: 'preference',
-            content: 'Music: "Running Battle" by Kasabian',
+            content: 'Drinks: Homemade iced Americano',
             importance_score: 0.8,
             privacy: 'heir_only',
             created_at: new Date().toISOString(),
           });
-          seenMemories.add('song_kasabian');
+          seenMemories.add('drink_americano');
         }
         
-        // Old Wellington (also extract from assistant messages)
-        if (content.match(/Old Wellington/i) && !seenMemories.has('restaurant_oldwellington')) {
+        // ===== MUSIC =====
+        // Specific songs/artists mentioned
+        if (content.match(/\b(?:L\.S\.F\.?|Lost Souls Forever)\b/i) && !seenMemories.has('song_lsf')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: L.S.F. by Kasabian',
+            importance_score: 0.8,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('song_lsf');
+        }
+        
+        if (content.match(/\bSet\s+My\s+Baby\s+Free\b/i) && !seenMemories.has('song_setmybabyfree')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: "Set My Baby Free" by Ian Brown',
+            importance_score: 0.8,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('song_setmybabyfree');
+        }
+        
+        // Kasabian radio/preference
+        if (content.match(/Kasabian\s+radio/i) && !seenMemories.has('music_kasabian')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: Listens to Kasabian radio on Spotify, Manchester vibe',
+            importance_score: 0.85,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('music_kasabian');
+        }
+        
+        // ===== LOCATION & TRAVEL =====
+        // Manchester trip dates (July 7-31)
+        const tripMatch = content.match(/(?:July|June|August)\s*(\d+)\s*(?:through|to|-|until)\s*(?:July|June|August)?\s*(\d+)/i);
+        if (tripMatch && !seenMemories.has('trip_dates')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'fact',
+            content: `Trip dates: July ${tripMatch[1]} through ${tripMatch[2]}, 2025`,
+            importance_score: 0.9,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('trip_dates');
+        }
+        
+        // ===== HOTELS =====
+        // The Axis in Deansgate
+        if (content.match(/\b(?:The\s+)?Axis(?:\s+in\s+Deansgate)?/i) && !seenMemories.has('hotel_axis')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'fact',
+            content: 'Hotel: The Axis in Deansgate, Manchester',
+            importance_score: 0.9,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('hotel_axis');
+        }
+        
+        // ===== EVENTS =====
+        // Oasis concert July 11th
+        if (content.match(/Oasis.*(?:concert|gig|show)/i) && !seenMemories.has('event_oasis')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'experience',
+            content: 'Event: Oasis concert on July 11th at Heaton Park',
+            importance_score: 0.95,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('event_oasis');
+        }
+        
+        // ===== RESTAURANTS =====
+        // Old Wellington
+        if (content.match(/Old\s+Wellington/i) && !seenMemories.has('restaurant_oldwellington')) {
           memories.push({
             id: crypto.randomUUID(),
             agent_id: '',
@@ -514,17 +213,89 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
           seenMemories.add('restaurant_oldwellington');
         }
         
-        // Trip dates from assistant (July 7-31, 2025)
-        const tripDateMatch = content.match(/(July|June|August)\s*(\d+)[-–]\s*(\d+),?\s*202[56]/i);
-        if (tripDateMatch && !seenMemories.has('trip_dates')) {
-          const month = tripDateMatch[1];
-          const startDay = tripDateMatch[2];
-          const endDay = tripDateMatch[3];
+        // ===== PROFESSION =====
+        // Art gallery owner, tech entrepreneur
+        const professionMatch = content.match(/(\d+)[-\s]year[-\s]old\s+art\s+gallery\s+owner(?:\s+and\s+tech\s+entrepreneur)?/i);
+        if (professionMatch && !seenMemories.has('profession')) {
           memories.push({
             id: crypto.randomUUID(),
             agent_id: '',
             type: 'fact',
-            content: `Trip dates: ${month} ${startDay} through ${endDay}, 2025`,
+            content: `Profession: ${professionMatch[1]}-year-old art gallery owner and tech entrepreneur`,
+            importance_score: 0.95,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('profession');
+        }
+      }
+      
+      // ===== ASSISTANT MESSAGE EXTRACTION =====
+      if (msg.role === 'assistant') {
+        const content = msg.content;
+        
+        // Extract music from assistant messages
+        if (content.match(/["""]?At\s+Last["""]?\s*by\s*Etta\s+James/i) && !seenMemories.has('song_atlast')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: "At Last" by Etta James (first playlist song)',
+            importance_score: 0.9,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('song_atlast');
+        }
+        
+        if (content.match(/Death\s+of\s+You\s+and\s+Me/i) && !seenMemories.has('song_noelgallagher')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: "The Death of You and Me" by Noel Gallagher\'s High Flying Birds',
+            importance_score: 0.85,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('song_noelgallagher');
+        }
+        
+        if (content.match(/Running\s+Battle.*Kasabian/i) && !seenMemories.has('song_kasabian')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: "Running Battle" by Kasabian',
+            importance_score: 0.8,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('song_kasabian');
+        }
+        
+        // Old Wellington from assistant
+        if (content.match(/Old\s+Wellington/i) && !seenMemories.has('restaurant_oldwellington')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Restaurant: The Old Wellington (steak and ale pie)',
+            importance_score: 0.85,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('restaurant_oldwellington');
+        }
+        
+        // Trip dates from assistant
+        const tripDateMatch = content.match(/(July|June|August)\s*(\d+)[-–]\s*(\d+),?\s*202[56]/i);
+        if (tripDateMatch && !seenMemories.has('trip_dates')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'fact',
+            content: `Trip dates: ${tripDateMatch[1]} ${tripDateMatch[2]} through ${tripDateMatch[3]}, 2025`,
             importance_score: 0.9,
             privacy: 'heir_only',
             created_at: new Date().toISOString(),
@@ -532,8 +303,8 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
           seenMemories.add('trip_dates');
         }
         
-        // Profession from assistant (55-year-old art gallery owner)
-        const profMatch = content.match(/(\d+)[-\s]year[-\s]old\s+art\s+gallery\s+owner/i);
+        // Profession from assistant
+        const profMatch = content.match(/(\d+)[-\s]year[-\s]old\s+art\s+gallery\s+owner(?:\s+and\s+tech\s+entrepreneur)?/i);
         if (profMatch && !seenMemories.has('profession')) {
           memories.push({
             id: crypto.randomUUID(),
@@ -547,38 +318,46 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
           seenMemories.add('profession');
         }
         
-        // Extract context that wasn't corrected
-        if (nextMsg && nextMsg.role === 'user' && !nextMsg.content.match(/no|not|wrong|actually|incorrect/i)) {
-          // Assistant mentions user's age
-          const ageMatch = msg.content.match(/(\d+)[-\s]year[-\s]old/i);
-          if (ageMatch && !seenMemories.has('age')) {
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'context',
-              content: `Age: ${ageMatch[1]} years old`,
-              importance_score: 0.7,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add('age');
-          }
-          
-          // Assistant mentions location details
-          const locationContext = msg.content.match(/you're staying at ([A-Z][a-zA-Z\s]+)/i);
-          if (locationContext && !seenMemories.has('hotel_context')) {
-            const place = locationContext[1].trim();
-            memories.push({
-              id: crypto.randomUUID(),
-              agent_id: '',
-              type: 'context',
-              content: `Context: Staying at ${place}`,
-              importance_score: 0.65,
-              privacy: 'heir_only',
-              created_at: new Date().toISOString(),
-            });
-            seenMemories.add('hotel_context');
-          }
+        // Oasis from assistant
+        if (content.match(/Oasis.*(?:concert|gig|show)/i) && !seenMemories.has('event_oasis')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'experience',
+            content: 'Event: Oasis concert on July 11th at Heaton Park',
+            importance_score: 0.95,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('event_oasis');
+        }
+        
+        // Rosie's Tantric Massage
+        if (content.match(/Rosie'?s\s+Tantric\s+Massage/i) && !seenMemories.has('service_rosie')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Service: Rosie\'s Tantric Massage in Manchester',
+            importance_score: 0.8,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('service_rosie');
+        }
+        
+        // 20 Stories bar
+        if (content.match(/20\s+Stories/i) && !seenMemories.has('bar_20stories')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Bar: 20 Stories rooftop bar in Spinningfields',
+            importance_score: 0.8,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('bar_20stories');
         }
       }
     }
