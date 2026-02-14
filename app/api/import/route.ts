@@ -166,6 +166,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       agent_id: agentId,
+      inferredPersonality: importedData.inferredPersonality,
       imported: {
         source: importedData.metadata.source,
         conversations: importedConversationCount,
