@@ -54,10 +54,7 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
 
       setResult(data);
 
-      // Auto-redirect after 2 seconds
-      setTimeout(() => {
-        onComplete(data.agent_id);
-      }, 2000);
+      // User manually clicks Continue to proceed
 
     } catch (err: any) {
       setError(err.message);
@@ -88,10 +85,7 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
 
       setResult(data);
 
-      // Auto-redirect after 2 seconds
-      setTimeout(() => {
-        onComplete(data.agent_id);
-      }, 2000);
+      // User manually clicks Continue to proceed
 
     } catch (err: any) {
       setError(err.message);
@@ -108,18 +102,37 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
           <CheckCircle size={64} className="mx-auto text-green-600 mb-4" />
           
           <h2 className="text-2xl font-bold text-green-900 mb-4">
-            Import Successful!
+            ✅ Import Successful!
           </h2>
 
-          <div className="space-y-2 text-gray-700 mb-6">
-            <p>Source: <strong>{result.imported.source}</strong></p>
-            <p>Conversations: <strong>{result.imported.conversations}</strong></p>
-            <p>Messages: <strong>{result.imported.messages}</strong></p>
-            <p>Memories extracted: <strong>{result.imported.memories}</strong></p>
+          <div className="space-y-3 text-left bg-white rounded-lg p-6 mb-6">
+            <div className="flex justify-between border-b pb-2">
+              <span className="text-gray-600">Source:</span>
+              <strong className="text-gray-900">{result.imported?.source || 'Unknown'}</strong>
+            </div>
+            <div className="flex justify-between border-b pb-2">
+              <span className="text-gray-600">Conversations:</span>
+              <strong className="text-green-600">{result.imported?.conversations || 0}</strong>
+            </div>
+            <div className="flex justify-between border-b pb-2">
+              <span className="text-gray-600">Messages:</span>
+              <strong className="text-green-600">{result.imported?.messages || 0}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Memories Extracted:</span>
+              <strong className="text-green-600">{result.imported?.memories || 0}</strong>
+            </div>
           </div>
 
-          <p className="text-sm text-gray-600">
-            Redirecting you to your new agent...
+          <button
+            onClick={() => onComplete(result.agent_id)}
+            className="w-full bg-black text-white px-8 py-4 rounded-xl font-medium hover:bg-gray-800 transition-all"
+          >
+            Continue to Chat →
+          </button>
+
+          <p className="text-xs text-gray-500 mt-4">
+            Your conversation history has been imported successfully!
           </p>
         </div>
       </div>
