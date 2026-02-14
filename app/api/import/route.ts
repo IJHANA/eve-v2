@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { detectParser } from '@/lib/importers';
+import { extractEnhancedMemories } from '@/lib/importers/enhanced-memory-extractor';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,7 +38,27 @@ export async function POST(req: NextRequest) {
     // Parse the file
     const importedData = await parser.parse(fileContent);
 
-    console.log(`Parsed ${importedData.conversations.length} conversations, ${importedData.memories.length} memories`);
+    console.log(`Parsed ${importedData.conversations.length} conversations, ${importedData.memories.length} basic memories`);
+
+    // Run enhanced memory extraction to get MORE memories
+    const enhancedMemories = extractEnhancedMemories(importedData.conversations);
+    
+    // Combine basic + enhanced memories (dedupe by content)
+    const allMemories = [...importedData.memories];
+    const existingContents = new Set(allMemories.map(m => m.content.toLowerCase()));
+    
+    for (const mem of enhancedMemories) {
+      if (!existingContents.has(mem.content.toLowerCase())) {
+        allMemories.push(mem);
+        existingContents.add(mem.content.toLowerCase());
+      }
+    }
+    
+    // Replace with combined memories
+    importedData.memories = allMemories;
+    
+    console.log(`Enhanced extraction added ${enhancedMemories.length} more memories (total: ${allMemories.length})`);
+
 
     // Check if user already has an agent
     const { data: existingAgent } = await supabase

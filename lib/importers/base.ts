@@ -15,6 +15,30 @@ export interface ImportParser {
 /**
  * Helper to extract facts from conversations
  */
+/**
+ * Extract memories using AI analysis (much better than regex!)
+ * This will be called from the import API with OpenAI
+ */
+export function prepareConversationForMemoryExtraction(conversations: Conversation[]): string {
+  // Sample messages for AI analysis (don't send all 512!)
+  const samples: string[] = [];
+  
+  for (const conv of conversations) {
+    // Take every 10th message to get a representative sample
+    conv.messages.forEach((msg, idx) => {
+      if (idx % 10 === 0 || idx < 20) { // First 20 + every 10th
+        samples.push(`${msg.role}: ${msg.content.substring(0, 500)}`);
+      }
+    });
+  }
+  
+  return samples.slice(0, 50).join('\n\n'); // Max 50 samples
+}
+
+/**
+ * Basic regex-based extraction (fallback)
+ * This is the old method - kept for backwards compatibility
+ */
 export function extractFactsFromConversations(conversations: Conversation[]): Memory[] {
   const memories: Memory[] = [];
   const seenFacts = new Set<string>();
@@ -29,7 +53,7 @@ export function extractFactsFromConversations(conversations: Conversation[]): Me
             id: crypto.randomUUID(),
             agent_id: '', // Will be set later
             type: 'fact',
-            content: `name: ${nameMatch[1]}`,
+            content: `User's name: ${nameMatch[1]}`,
             importance_score: 0.9,
             privacy: 'heir_only',
             created_at: new Date().toISOString(),
@@ -37,47 +61,48 @@ export function extractFactsFromConversations(conversations: Conversation[]): Me
           seenFacts.add('name');
         }
 
-        // Extract location
-        const locationMatch = msg.content.match(/I (?:live|am) (?:in|from) ([A-Z][a-zA-Z\s]+)/i);
-        if (locationMatch && !seenFacts.has('location')) {
+        // Extract location/travel plans
+        const locationMatch = msg.content.match(/(?:staying|visiting|going to|live in|am in|from) ([A-Z][a-zA-Z\s]+?)(?:\.|,|from|in|on)/i);
+        if (locationMatch && !seenFacts.has(`loc_${locationMatch[1]}`)) {
           memories.push({
             id: crypto.randomUUID(),
             agent_id: '',
             type: 'fact',
-            content: `location: ${locationMatch[1].trim()}`,
+            content: `Location/Travel: ${locationMatch[1].trim()}`,
             importance_score: 0.8,
             privacy: 'heir_only',
             created_at: new Date().toISOString(),
           });
-          seenFacts.add('location');
+          seenFacts.add(`loc_${locationMatch[1]}`);
         }
 
-        // Extract age
-        const ageMatch = msg.content.match(/I (?:am|'m) (\d+) years old/i);
-        if (ageMatch && !seenFacts.has('age')) {
+        // Extract dates/events
+        const dateMatch = msg.content.match(/(?:on|from|until) (?:July|August|September|October|November|December|January|February|March|April|May|June) \d+/i);
+        if (dateMatch && !seenFacts.has(`date_${dateMatch[0]}`)) {
+          const fullContext = msg.content.substring(0, 200);
           memories.push({
             id: crypto.randomUUID(),
             agent_id: '',
-            type: 'fact',
-            content: `age: ${ageMatch[1]}`,
+            type: 'experience',
+            content: `Event/Date: ${fullContext}`,
             importance_score: 0.7,
             privacy: 'heir_only',
             created_at: new Date().toISOString(),
           });
-          seenFacts.add('age');
+          seenFacts.add(`date_${dateMatch[0]}`);
         }
 
-        // Extract preferences (I love/like/enjoy)
-        const preferenceMatch = msg.content.match(/I (?:love|like|enjoy) ([a-zA-Z\s]+?)(?:\.|,|$)/i);
+        // Extract preferences (I love/like/enjoy/want)
+        const preferenceMatch = msg.content.match(/I (?:love|like|enjoy|want|prefer) ([a-zA-Z\s]+?)(?:\.|,|and|but|$)/i);
         if (preferenceMatch) {
           const preference = preferenceMatch[1].trim();
-          const key = `pref_${preference.toLowerCase().replace(/\s+/g, '_')}`;
-          if (!seenFacts.has(key)) {
+          const key = `pref_${preference.toLowerCase().substring(0, 20)}`;
+          if (!seenFacts.has(key) && preference.length > 2) {
             memories.push({
               id: crypto.randomUUID(),
               agent_id: '',
               type: 'preference',
-              content: `likes: ${preference}`,
+              content: `User likes: ${preference}`,
               importance_score: 0.6,
               privacy: 'heir_only',
               created_at: new Date().toISOString(),
