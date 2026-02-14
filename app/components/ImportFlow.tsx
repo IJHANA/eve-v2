@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { Upload, CheckCircle, XCircle, Loader } from 'lucide-react';
+import ShareLinkImport from './ShareLinkImport';
 
 interface ImportFlowProps {
   userId: string;
@@ -16,6 +17,7 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [importMethod, setImportMethod] = useState<'file' | 'link'>('link');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -40,6 +42,40 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileContent,
+          userId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Import failed');
+      }
+
+      setResult(data);
+
+      // Auto-redirect after 2 seconds
+      setTimeout(() => {
+        onComplete(data.agent_id);
+      }, 2000);
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleShareLinkSuccess = async (content: string) => {
+    setImporting(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileContent: content,
           userId,
         }),
       });
@@ -98,13 +134,46 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
         Bring your conversations from Grok, ChatGPT, or Claude to Eve.
       </p>
 
+      {/* Import method tabs */}
+      <div className="flex gap-2 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setImportMethod('link')}
+          className={`px-4 py-2 border-b-2 transition-colors ${
+            importMethod === 'link'
+              ? 'border-black text-black font-medium'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          📎 Share Link
+        </button>
+        <button
+          onClick={() => setImportMethod('file')}
+          className={`px-4 py-2 border-b-2 transition-colors ${
+            importMethod === 'file'
+              ? 'border-black text-black font-medium'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          📁 Upload File
+        </button>
+      </div>
+
+      {/* Share link import */}
+      {importMethod === 'link' && (
+        <ShareLinkImport onSuccess={handleShareLinkSuccess} />
+      )}
+
+      {/* File upload import */}
+      {importMethod === 'file' && (
+        <div>
+
       {/* Instructions */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
         <h3 className="font-semibold mb-3 text-blue-900">How to export:</h3>
         <ul className="space-y-2 text-sm text-blue-900">
           <li className="flex items-start gap-2">
             <span className="font-bold min-w-[80px]">Grok:</span>
-            <span>Settings → Export Data → Download</span>
+            <span>Copy/paste your conversation into a .txt or .md file</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="font-bold min-w-[80px]">ChatGPT:</span>
@@ -207,6 +276,8 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
       <p className="text-xs text-gray-500 mt-4 text-center">
         Your data is processed securely and never shared with third parties.
       </p>
+        </div>
+      )}
     </div>
   );
 }
