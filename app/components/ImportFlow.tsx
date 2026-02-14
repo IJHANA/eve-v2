@@ -111,9 +111,15 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
               <strong className="text-gray-900">{result.imported?.source || 'Unknown'}</strong>
             </div>
             <div className="flex justify-between border-b pb-2">
-              <span className="text-gray-600">Conversations:</span>
+              <span className="text-gray-600">Conversations Imported:</span>
               <strong className="text-green-600">{result.imported?.conversations || 0}</strong>
             </div>
+            {result.imported?.conversationsSkipped > 0 && (
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600">Duplicates Skipped:</span>
+                <strong className="text-orange-600">{result.imported.conversationsSkipped}</strong>
+              </div>
+            )}
             <div className="flex justify-between border-b pb-2">
               <span className="text-gray-600">Messages:</span>
               <strong className="text-green-600">{result.imported?.messages || 0}</strong>

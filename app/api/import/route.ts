@@ -39,62 +39,111 @@ export async function POST(req: NextRequest) {
 
     console.log(`Parsed ${importedData.conversations.length} conversations, ${importedData.memories.length} memories`);
 
-    // Create the agent
-    const { data: agent, error: agentError } = await supabase
+    // Check if user already has an agent
+    const { data: existingAgent } = await supabase
       .from('agents')
-      .insert({
-        user_id: userId,
-        name: 'Eve',
-        type: 'personal',
-        core_prompt: importedData.inferredPersonality,
-        default_mood: {
-          empathy: 0.7,
-          directness: 0.5,
-          humor: 0.5,
-          formality: 0.3,
-          intensity: 0.5,
-          romanticism: 0.1,
-        },
-      })
-      .select()
+      .select('id')
+      .eq('user_id', userId)
+      .eq('type', 'personal')
       .single();
 
-    if (agentError) {
-      console.error('Error creating agent:', agentError);
-      throw new Error('Failed to create agent');
-    }
+    let agentId: string;
+    let importedConversationCount = 0;
+    let skippedConversationCount = 0;
 
-    console.log(`Created agent: ${agent.id}`);
+    if (existingAgent) {
+      // User already has an agent - add conversations to existing agent
+      console.log(`Using existing agent: ${existingAgent.id}`);
+      agentId = existingAgent.id;
+    } else {
+      // Create new agent
+      const { data: agent, error: agentError } = await supabase
+        .from('agents')
+        .insert({
+          user_id: userId,
+          name: 'Eve',
+          type: 'personal',
+          core_prompt: importedData.inferredPersonality,
+          default_mood: {
+            empathy: 0.7,
+            directness: 0.5,
+            humor: 0.5,
+            formality: 0.3,
+            intensity: 0.5,
+            romanticism: 0.1,
+          },
+        })
+        .select()
+        .single();
+
+      if (agentError) {
+        console.error('Error creating agent:', agentError);
+        throw new Error(`Failed to create agent: ${agentError.message}`);
+      }
+
+      console.log(`Created new agent: ${agent.id}`);
+      agentId = agent.id;
+    }
 
     // Import conversations
     if (importedData.conversations.length > 0) {
-      const conversationsToInsert = importedData.conversations.map(conv => ({
-        agent_id: agent.id,
-        user_id: userId,
-        messages: conv.messages,
-        summary: conv.summary,
-        themes: conv.themes,
-        privacy: 'heir_only',
-        started_at: conv.started_at,
-        ended_at: conv.ended_at || conv.started_at,
-      }));
-
-      const { error: convError } = await supabase
+      // Check for existing conversations to avoid duplicates
+      const { data: existingConversations } = await supabase
         .from('conversations')
-        .insert(conversationsToInsert);
+        .select('messages, started_at')
+        .eq('agent_id', agentId);
 
-      if (convError) {
-        console.error('Error importing conversations:', convError);
-        // Don't fail the whole import if conversations fail
+      const existingHashes = new Set(
+        (existingConversations || []).map(conv => {
+          // Create hash from first message + timestamp
+          const firstMsg = conv.messages?.[0];
+          if (!firstMsg) return '';
+          return `${firstMsg.content?.slice(0, 100)}_${conv.started_at}`;
+        })
+      );
+
+      // Filter out duplicates
+      const conversationsToInsert = importedData.conversations
+        .filter(conv => {
+          const firstMsg = conv.messages?.[0];
+          if (!firstMsg) return false;
+          const hash = `${firstMsg.content?.slice(0, 100)}_${conv.started_at}`;
+          return !existingHashes.has(hash);
+        })
+        .map(conv => ({
+          agent_id: agentId,
+          user_id: userId,
+          messages: conv.messages,
+          summary: conv.summary,
+          themes: conv.themes,
+          privacy: 'heir_only',
+          started_at: conv.started_at,
+          ended_at: conv.ended_at || conv.started_at,
+        }));
+
+      if (conversationsToInsert.length > 0) {
+        const { error: convError } = await supabase
+          .from('conversations')
+          .insert(conversationsToInsert);
+
+        if (convError) {
+          console.error('Error importing conversations:', convError);
+          // Don't fail the whole import if conversations fail
+        } else {
+          importedConversationCount = conversationsToInsert.length;
+          skippedConversationCount = importedData.conversations.length - conversationsToInsert.length;
+          console.log(`Imported ${importedConversationCount} new conversations (${skippedConversationCount} duplicates skipped)`);
+        }
       } else {
-        console.log(`Imported ${conversationsToInsert.length} conversations`);
+        skippedConversationCount = importedData.conversations.length;
+        console.log('No new conversations to import (all were duplicates)');
       }
     }
 
     // Import memories
     if (importedData.memories.length > 0) {
       const memoriesToInsert = importedData.memories.map(mem => ({
-        agent_id: agent.id,
+        agent_id: agentId,
         type: mem.type,
         content: mem.content,
         importance_score: mem.importance_score,
@@ -116,10 +165,11 @@ export async function POST(req: NextRequest) {
     // Return success
     return NextResponse.json({
       success: true,
-      agent_id: agent.id,
+      agent_id: agentId,
       imported: {
         source: importedData.metadata.source,
-        conversations: importedData.conversations.length,
+        conversations: importedConversationCount,
+        conversationsSkipped: skippedConversationCount,
         messages: importedData.metadata.messageCount,
         memories: importedData.memories.length,
       },
