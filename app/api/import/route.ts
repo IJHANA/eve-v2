@@ -1,9 +1,8 @@
-// app/api/import/route.ts - Import conversation history from other platforms
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { detectParser } from '@/lib/importers';
 import { extractEnhancedMemories } from '@/lib/importers/enhanced-memory-extractor';
+import { extractMemoriesWithAI, mergeMemories } from '@/lib/importers/ai-memory-extractor';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -45,13 +44,19 @@ export async function POST(req: NextRequest) {
 
     console.log(`Parsed ${importedData.conversations.length} conversations, ${importedData.memories.length} basic memories`);
 
-    // Run enhanced memory extraction to get MORE memories
+    // Run enhanced memory extraction to get MORE memories (pattern-based)
     const enhancedMemories = extractEnhancedMemories(importedData.conversations);
     
-    // Combine basic + enhanced memories (dedupe by content)
-    const allMemories = [...importedData.memories];
-    const existingContents = new Set(allMemories.map(m => m.content.toLowerCase()));
+    // Run AI-powered memory extraction for rich, contextual memories
+    console.log('Starting AI-powered memory extraction...');
+    const aiMemories = await extractMemoriesWithAI(importedData.conversations, 100);
+    console.log(`AI extraction found ${aiMemories.length} memories`);
     
+    // Merge all three sources: basic + enhanced + AI
+    let allMemories = [...importedData.memories];
+    
+    // Add enhanced memories (pattern-based)
+    const existingContents = new Set(allMemories.map(m => m.content.toLowerCase()));
     for (const mem of enhancedMemories) {
       if (!existingContents.has(mem.content.toLowerCase())) {
         allMemories.push(mem);
@@ -59,10 +64,13 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    // Merge with AI memories (handles deduplication)
+    allMemories = mergeMemories(aiMemories, allMemories);
+    
     // Replace with combined memories
     importedData.memories = allMemories;
     
-    console.log(`Enhanced extraction added ${enhancedMemories.length} more memories (total: ${allMemories.length})`);
+    console.log(`Total memories: ${importedData.memories.length} basic + ${enhancedMemories.length} pattern + ${aiMemories.length} AI = ${allMemories.length} final`);
 
 
     // Check if user already has an agent
