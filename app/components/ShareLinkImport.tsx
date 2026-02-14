@@ -71,50 +71,47 @@ export default function ShareLinkImport({ onSuccess }: ShareLinkImportProps) {
 
       {/* Examples */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
-        <p className="font-semibold mb-3 text-blue-900">How to import from Grok:</p>
+        <p className="font-semibold mb-3 text-blue-900">✨ Easiest Way to Import from Grok:</p>
         
-        <div className="space-y-3">
-          <div className="bg-white rounded p-3">
-            <p className="font-medium mb-2">Option 1: Copy/Paste (Easiest)</p>
-            <ol className="text-xs space-y-1 text-gray-700 list-decimal ml-4">
-              <li>Open your Grok conversation</li>
-              <li>Select all text (Cmd+A / Ctrl+A)</li>
-              <li>Copy (Cmd+C / Ctrl+C)</li>
-              <li>Click "📁 Upload File" tab above</li>
-              <li>Paste into a text file and upload</li>
-            </ol>
-          </div>
-
-          <div className="bg-white rounded p-3">
-            <p className="font-medium mb-2">Option 2: Browser Console</p>
-            <ol className="text-xs space-y-1 text-gray-700 list-decimal ml-4">
-              <li>Open your Grok share link</li>
-              <li>Press F12 (Developer Tools)</li>
-              <li>Go to Console tab</li>
-              <li>Paste this code and press Enter:</li>
-            </ol>
-            <div className="mt-2 bg-gray-900 text-green-400 p-2 rounded text-xs font-mono overflow-x-auto">
-              <code>
-{`let text = '';
-document.querySelectorAll('[data-testid*="message"], [class*="message"], article').forEach((el, i) => {
-  const content = el.innerText?.trim();
-  if (content && content.length > 20) {
-    const role = i % 2 === 0 ? 'User' : 'Grok';
-    text += \`## \${role}\\n\\n\${content}\\n\\n\`;
-  }
-});
-const blob = new Blob([text], {type: 'text/markdown'});
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = 'grok-export.md';
-a.click();
-console.log('Downloaded!');`}
-              </code>
-            </div>
-            <p className="text-xs text-gray-600 mt-2">This downloads a .md file you can upload!</p>
-          </div>
+        <div className="bg-white rounded p-4 mb-3">
+          <p className="font-medium mb-2 flex items-center gap-2">
+            <span className="text-lg">🤖</span> 
+            Enhanced Grok Export (Recommended)
+          </p>
+          <ol className="text-xs space-y-2 text-gray-700 list-decimal ml-4">
+            <li>Install <strong>Tampermonkey</strong> browser extension (free)</li>
+            <li>Install <strong>Enhanced Grok Export</strong>: 
+              <a 
+                href="https://greasyfork.org/en/scripts/537266-enhanced-grok-export-v2-4" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline ml-1"
+              >
+                Click here to install
+              </a>
+            </li>
+            <li>Open your Grok conversation</li>
+            <li>Scroll to bottom (loads all messages)</li>
+            <li>Click the <strong>🤖 Export Grok</strong> button (bottom-right)</li>
+            <li>Choose <strong>Markdown</strong> format</li>
+            <li>Upload the downloaded file here!</li>
+          </ol>
+          <p className="text-xs text-green-700 bg-green-50 p-2 rounded mt-2">
+            ✅ This exports ALL messages perfectly, including metadata!
+          </p>
         </div>
+
+        <details className="bg-white rounded p-3">
+          <summary className="font-medium cursor-pointer hover:text-gray-700">
+            Alternative: Manual Copy/Paste
+          </summary>
+          <ol className="text-xs space-y-1 text-gray-700 list-decimal ml-4 mt-2">
+            <li>Open your Grok conversation</li>
+            <li>Select all text (Cmd+A / Ctrl+A)</li>
+            <li>Copy and paste into a text file</li>
+            <li>Upload here</li>
+          </ol>
+        </details>
       </div>
 
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm mt-4">

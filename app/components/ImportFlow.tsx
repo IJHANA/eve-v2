@@ -189,10 +189,29 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
       {/* Instructions */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
         <h3 className="font-semibold mb-3 text-blue-900">How to export:</h3>
-        <ul className="space-y-2 text-sm text-blue-900">
-          <li className="flex items-start gap-2">
-            <span className="font-bold min-w-[80px]">Grok:</span>
-            <span>Copy/paste your conversation into a .txt or .md file</span>
+        <ul className="space-y-3 text-sm text-blue-900">
+          <li className="flex flex-col gap-2">
+            <div className="flex items-start gap-2">
+              <span className="font-bold min-w-[80px]">Grok:</span>
+              <div>
+                <p className="font-medium">Use Enhanced Grok Export (best way!)</p>
+                <ol className="text-xs mt-1 space-y-1 list-decimal ml-4 text-blue-800">
+                  <li>Install Tampermonkey browser extension</li>
+                  <li>
+                    Install script:{' '}
+                    <a 
+                      href="https://greasyfork.org/en/scripts/537266-enhanced-grok-export-v2-4" 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-blue-600"
+                    >
+                      Enhanced Grok Export
+                    </a>
+                  </li>
+                  <li>Open Grok chat → scroll to bottom → click 🤖 Export</li>
+                </ol>
+              </div>
+            </div>
           </li>
           <li className="flex items-start gap-2">
             <span className="font-bold min-w-[80px]">ChatGPT:</span>

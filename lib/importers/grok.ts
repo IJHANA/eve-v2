@@ -64,31 +64,25 @@ export class GrokParser implements ImportParser {
       }
     };
 
+    // Create initial conversation
+    currentConversation = {
+      id: crypto.randomUUID(),
+      agent_id: '',
+      user_id: '',
+      messages: [],
+      privacy: 'heir_only',
+      started_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
       // Detect role headers
-      if (line.match(/^##\s*(User|Grok)/i)) {
+      if (line.match(/^##\s*(User|Human|Grok)/i)) {
         flushMessage();
         
-        const role = line.toLowerCase().includes('user') ? 'user' : 'assistant';
-        
-        // If we're starting a user message and don't have a conversation, create one
-        if (role === 'user' && !currentConversation) {
-          if (currentConversation) {
-            conversations.push(currentConversation);
-          }
-          currentConversation = {
-            id: crypto.randomUUID(),
-            agent_id: '',
-            user_id: '',
-            messages: [],
-            privacy: 'heir_only',
-            started_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-          };
-        }
-
+        const role = line.toLowerCase().includes('grok') ? 'assistant' : 'user';
         currentRole = role;
       } else if (line.trim() && currentRole) {
         // Add content line
