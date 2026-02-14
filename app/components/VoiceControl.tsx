@@ -117,9 +117,6 @@ export default function VoiceControl({
               </optgroup>
             </select>
           )}
-              </option>
-            ))}
-          </select>
           <p className="text-xs text-gray-500 mt-2">
             Voice settings still adapt slightly to mood
           </p>
