@@ -115,7 +115,7 @@ function parseChatGPTShareLink(html: string): string {
   let content = '';
 
   // ChatGPT embeds conversation data in __NEXT_DATA__
-  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>(.*?)<\/script>/s);
+  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
   if (nextDataMatch) {
     try {
       const data = JSON.parse(nextDataMatch[1]);
@@ -146,7 +146,7 @@ function parseClaudeShareLink(html: string): string {
   let content = '';
   
   // Try to find embedded JSON
-  const dataMatch = html.match(/window\.__CLAUDE_DATA__\s*=\s*({.+?});/s);
+  const dataMatch = html.match(/window\.__CLAUDE_DATA__\s*=\s*({[\s\S]+?});/);
   if (dataMatch) {
     try {
       const data = JSON.parse(dataMatch[1]);
