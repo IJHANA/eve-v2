@@ -56,29 +56,43 @@ export async function POST(req: NextRequest) {
 
     // Fetch relevant memories if we have an agent
     if (agentId) {
+      let memoriesAdded = false;
+      
       try {
         // Get embedding for the message
         const embedding = await getEmbedding(message);
         
-        // Search for relevant memories using semantic similarity
-        const { data: memories, error: memError } = await supabase.rpc('match_memories', {
-          query_embedding: embedding,
-          filter_agent_id: agentId,
-          match_threshold: 0.70, // Lowered from 0.75
-          match_count: 10, // Increased from 5
-        });
+        if (embedding.length > 0) {
+          // Search for relevant memories using semantic similarity
+          const { data: memories, error: memError } = await supabase.rpc('match_memories', {
+            query_embedding: embedding,
+            filter_agent_id: agentId,
+            match_threshold: 0.70,
+            match_count: 10,
+          });
 
-        if (!memError && memories && memories.length > 0) {
-          const memoryText = memories
-            .map((m: any) => `- ${m.content}`)
-            .join('\n');
-          
-          systemPrompt += `\n\nRELEVANT MEMORIES FROM PAST CONVERSATIONS:\n${memoryText}`;
-          console.log(`Added ${memories.length} relevant memories to context`);
-        } else {
-          console.log('Semantic search found no memories, trying fallback...', memError?.message);
-          
-          // FALLBACK: If semantic search fails, load top memories by importance
+          if (!memError && memories && memories.length > 0) {
+            const memoryText = memories
+              .map((m: any) => `- ${m.content}`)
+              .join('\n');
+            
+            systemPrompt += `\n\nRELEVANT MEMORIES FROM PAST CONVERSATIONS:\n${memoryText}`;
+            console.log(`Added ${memories.length} memories via semantic search`);
+            memoriesAdded = true;
+          } else if (memError) {
+            console.log('Semantic search error:', memError.message);
+          } else {
+            console.log('Semantic search found 0 relevant memories');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching memories:', err);
+      }
+      
+      // FALLBACK: If semantic search returned nothing, load top memories by importance
+      if (!memoriesAdded) {
+        try {
+          console.log('Using fallback: loading top memories by importance');
           const { data: topMemories } = await supabase
             .from('memories')
             .select('content, type, importance_score')
@@ -92,11 +106,11 @@ export async function POST(req: NextRequest) {
               .join('\n');
             
             systemPrompt += `\n\nKEY MEMORIES FROM PAST CONVERSATIONS:\n${memoryText}`;
-            console.log(`Added ${topMemories.length} memories via fallback (no embeddings)`);
+            console.log(`Added ${topMemories.length} memories via fallback`);
           }
+        } catch (fallbackErr) {
+          console.error('Fallback memory loading failed:', fallbackErr);
         }
-      } catch (err) {
-        console.error('Error fetching memories:', err);
       }
     }
 

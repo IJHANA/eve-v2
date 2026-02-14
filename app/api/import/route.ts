@@ -4,6 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { detectParser } from '@/lib/importers';
 import { extractEnhancedMemories } from '@/lib/importers/enhanced-memory-extractor';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,15 +166,48 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Import memories
+    // Import memories with embeddings
     if (importedData.memories.length > 0) {
-      const memoriesToInsert = importedData.memories.map(mem => ({
-        agent_id: agentId,
-        type: mem.type,
-        content: mem.content,
-        importance_score: mem.importance_score,
-        privacy: 'heir_only',
-      }));
+      console.log(`Generating embeddings for ${importedData.memories.length} memories...`);
+      
+      // Generate embeddings in batches of 10 to avoid rate limits
+      const batchSize = 10;
+      const memoriesToInsert = [];
+      
+      for (let i = 0; i < importedData.memories.length; i += batchSize) {
+        const batch = importedData.memories.slice(i, i + batchSize);
+        
+        // Generate embeddings for this batch
+        const embeddingPromises = batch.map(async (mem) => {
+          try {
+            const embedding = await getEmbedding(mem.content);
+            return {
+              agent_id: agentId,
+              type: mem.type,
+              content: mem.content,
+              importance_score: mem.importance_score,
+              privacy: 'heir_only',
+              embedding: embedding.length > 0 ? embedding : null,
+            };
+          } catch (error) {
+            console.error(`Error generating embedding for memory: ${mem.content.substring(0, 50)}`, error);
+            // Still insert the memory without embedding
+            return {
+              agent_id: agentId,
+              type: mem.type,
+              content: mem.content,
+              importance_score: mem.importance_score,
+              privacy: 'heir_only',
+              embedding: null,
+            };
+          }
+        });
+        
+        const batchResults = await Promise.all(embeddingPromises);
+        memoriesToInsert.push(...batchResults);
+        
+        console.log(`Generated embeddings for batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(importedData.memories.length / batchSize)}`);
+      }
 
       const { error: memError } = await supabase
         .from('memories')
@@ -203,5 +241,22 @@ export async function POST(req: NextRequest) {
       { error: error.message || 'Import failed' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Generate embedding for semantic search
+ */
+async function getEmbedding(text: string): Promise<number[]> {
+  try {
+    const response = await openai.embeddings.create({
+      model: 'text-embedding-ada-002',
+      input: text.substring(0, 8000), // Truncate to fit model limits
+    });
+
+    return response.data[0].embedding;
+  } catch (error) {
+    console.error('Error generating embedding:', error);
+    return [];
   }
 }
