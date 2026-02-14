@@ -21,7 +21,32 @@ export default function SettingsPanel({ userId, onClose, onImportComplete }: Set
   const [agentId, setAgentId] = useState('');
   const [defaultVoiceId, setDefaultVoiceId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [voices, setVoices] = useState<any[]>([]);
+  const [loadingVoices, setLoadingVoices] = useState(true);
   const supabase = createClient();
+
+  // Load voices from ElevenLabs
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        const response = await fetch('/api/voices');
+        if (response.ok) {
+          const data = await response.json();
+          setVoices(data.voices);
+        } else {
+          // Fallback to hardcoded voices
+          setVoices(AVAILABLE_VOICES);
+        }
+      } catch (error) {
+        console.error('Error loading voices:', error);
+        // Fallback to hardcoded voices
+        setVoices(AVAILABLE_VOICES);
+      } finally {
+        setLoadingVoices(false);
+      }
+    };
+    loadVoices();
+  }, []);
 
   // Load agent data
   useEffect(() => {
@@ -37,7 +62,7 @@ export default function SettingsPanel({ userId, onClose, onImportComplete }: Set
         setAgentId(data.id);
         setAgentName(data.name || 'Eve');
         setAgentPrompt(data.core_prompt || '');
-        setDefaultVoiceId(data.default_voice_id || AVAILABLE_VOICES[0].id);
+        setDefaultVoiceId(data.default_voice_id || '21m00Tcm4TlvDq8ikWAM'); // Rachel legacy default
       }
     };
     loadAgent();
@@ -178,17 +203,32 @@ export default function SettingsPanel({ userId, onClose, onImportComplete }: Set
                 <label className="block text-sm font-semibold mb-2">
                   Default Voice
                 </label>
-                <select
-                  value={defaultVoiceId}
-                  onChange={(e) => setDefaultVoiceId(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                >
-                  {AVAILABLE_VOICES.map((voice) => (
-                    <option key={voice.id} value={voice.id}>
-                      {voice.name} - {voice.description}
-                    </option>
-                  ))}
-                </select>
+                {loadingVoices ? (
+                  <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                    Loading voices...
+                  </div>
+                ) : (
+                  <select
+                    value={defaultVoiceId}
+                    onChange={(e) => setDefaultVoiceId(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <optgroup label="Legacy Voices">
+                      <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Legacy Default)</option>
+                      <option value="oWAxZDx7w5VEj9dCyTzz">Grace (Legacy Default)</option>
+                    </optgroup>
+                    <optgroup label="Your Voices">
+                      {voices
+                        .filter(v => !['21m00Tcm4TlvDq8ikWAM', 'oWAxZDx7w5VEj9dCyTzz'].includes(v.id))
+                        .map((voice) => (
+                          <option key={voice.id} value={voice.id}>
+                            {voice.name} - {voice.description}
+                          </option>
+                        ))
+                      }
+                    </optgroup>
+                  </select>
+                )}
                 <p className="text-xs text-gray-500 mt-2">
                   🎤 This voice will be used when voice mode is set to "Auto"
                 </p>

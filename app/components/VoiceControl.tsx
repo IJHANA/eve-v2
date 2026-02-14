@@ -2,8 +2,9 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { VoiceMode } from '@/types';
-import { AVAILABLE_VOICES, getVoiceDescription } from '@/lib/voice';
+import { getVoiceDescription } from '@/lib/voice';
 import { Mood } from '@/types';
 
 interface VoiceControlProps {
@@ -21,6 +22,26 @@ export default function VoiceControl({
   onVoiceModeChange,
   onLockedVoiceChange,
 }: VoiceControlProps) {
+  const [voices, setVoices] = useState<any[]>([]);
+  const [loadingVoices, setLoadingVoices] = useState(true);
+
+  // Load voices from ElevenLabs
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        const response = await fetch('/api/voices');
+        if (response.ok) {
+          const data = await response.json();
+          setVoices(data.voices);
+        }
+      } catch (error) {
+        console.error('Error loading voices:', error);
+      } finally {
+        setLoadingVoices(false);
+      }
+    };
+    loadVoices();
+  }, []);
   
   const autoDescription = getVoiceDescription(currentMood);
 
@@ -70,14 +91,32 @@ export default function VoiceControl({
           <label className="text-xs font-medium text-gray-700 mb-2 block">
             Select Voice:
           </label>
-          <select
-            value={lockedVoiceId || AVAILABLE_VOICES[0].id}
-            onChange={(e) => onLockedVoiceChange(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-          >
-            {AVAILABLE_VOICES.map((voice) => (
-              <option key={voice.id} value={voice.id}>
-                {voice.name} - {voice.description}
+          {loadingVoices ? (
+            <div className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+              Loading voices...
+            </div>
+          ) : (
+            <select
+              value={lockedVoiceId || '21m00Tcm4TlvDq8ikWAM'}
+              onChange={(e) => onLockedVoiceChange(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+            >
+              <optgroup label="Legacy Voices">
+                <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Legacy Default)</option>
+                <option value="oWAxZDx7w5VEj9dCyTzz">Grace (Legacy Default)</option>
+              </optgroup>
+              <optgroup label="Your Voices">
+                {voices
+                  .filter(v => !['21m00Tcm4TlvDq8ikWAM', 'oWAxZDx7w5VEj9dCyTzz'].includes(v.id))
+                  .map((voice) => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.name} - {voice.description}
+                    </option>
+                  ))
+                }
+              </optgroup>
+            </select>
+          )}
               </option>
             ))}
           </select>

@@ -2,9 +2,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sparkles, Loader } from 'lucide-react';
-import { AVAILABLE_VOICES } from '@/lib/voice';
 
 interface AgentCustomizationProps {
   suggestedName?: string;
@@ -23,9 +22,29 @@ export default function AgentCustomization({
 }: AgentCustomizationProps) {
   const [name, setName] = useState(suggestedName);
   const [prompt, setPrompt] = useState(suggestedPrompt || '');
-  const [voiceId, setVoiceId] = useState(AVAILABLE_VOICES[0].id);
+  const [voiceId, setVoiceId] = useState('21m00Tcm4TlvDq8ikWAM'); // Rachel legacy default
+  const [voices, setVoices] = useState<any[]>([]);
+  const [loadingVoices, setLoadingVoices] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generatingPrompt, setGeneratingPrompt] = useState(false);
+
+  // Load voices from ElevenLabs
+  useEffect(() => {
+    const loadVoices = async () => {
+      try {
+        const response = await fetch('/api/voices');
+        if (response.ok) {
+          const data = await response.json();
+          setVoices(data.voices);
+        }
+      } catch (error) {
+        console.error('Error loading voices:', error);
+      } finally {
+        setLoadingVoices(false);
+      }
+    };
+    loadVoices();
+  }, []);
 
   const handleGeneratePrompt = async () => {
     setGeneratingPrompt(true);
@@ -127,17 +146,32 @@ export default function AgentCustomization({
           <label className="block text-sm font-semibold mb-2">
             Default Voice
           </label>
-          <select
-            value={voiceId}
-            onChange={(e) => setVoiceId(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-          >
-            {AVAILABLE_VOICES.map((voice) => (
-              <option key={voice.id} value={voice.id}>
-                {voice.name} - {voice.description}
-              </option>
-            ))}
-          </select>
+          {loadingVoices ? (
+            <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+              Loading voices...
+            </div>
+          ) : (
+            <select
+              value={voiceId}
+              onChange={(e) => setVoiceId(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+            >
+              <optgroup label="Legacy Voices">
+                <option value="21m00Tcm4TlvDq8ikWAM">Rachel (Legacy Default)</option>
+                <option value="oWAxZDx7w5VEj9dCyTzz">Grace (Legacy Default)</option>
+              </optgroup>
+              <optgroup label="Your Voices">
+                {voices
+                  .filter(v => !['21m00Tcm4TlvDq8ikWAM', 'oWAxZDx7w5VEj9dCyTzz'].includes(v.id))
+                  .map((voice) => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.name} - {voice.description}
+                    </option>
+                  ))
+                }
+              </optgroup>
+            </select>
+          )}
           <p className="text-xs text-gray-500 mt-2">
             🎤 This voice will be used when voice mode is set to "Auto"
           </p>
