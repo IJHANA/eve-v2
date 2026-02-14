@@ -160,10 +160,10 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
   if (result && showCustomization) {
     return (
       <AgentCustomization
-        suggestedName={result.imported?.source === 'Grok' ? 'Ara' : 'Eve'}
+        suggestedName="Eve"
         suggestedPrompt={result.inferredPersonality}
         messageCount={result.imported?.messages || 0}
-        onSave={async (name, prompt) => {
+        onSave={async (name, prompt, voiceId) => {
           // Update agent with custom name and prompt
           const response = await fetch('/api/update-agent', {
             method: 'POST',
@@ -172,6 +172,7 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
               agentId: result.agent_id,
               name,
               prompt,
+              defaultVoiceId: voiceId,
             }),
           });
 

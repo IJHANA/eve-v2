@@ -2,9 +2,11 @@
 
 'use client';
 
-import { useState } from 'react';
-import { X, Upload, Database, Shield, User, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Upload, Database, Shield, User, Trash2, Sparkles } from 'lucide-react';
 import ImportFlow from './ImportFlow';
+import { createClient } from '@/lib/supabase';
+import { AVAILABLE_VOICES } from '@/lib/voice';
 
 interface SettingsPanelProps {
   userId: string;
@@ -13,10 +15,57 @@ interface SettingsPanelProps {
 }
 
 export default function SettingsPanel({ userId, onClose, onImportComplete }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'import' | 'domains' | 'privacy'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'agent' | 'import' | 'domains' | 'privacy'>('general');
+  const [agentName, setAgentName] = useState('');
+  const [agentPrompt, setAgentPrompt] = useState('');
+  const [agentId, setAgentId] = useState('');
+  const [defaultVoiceId, setDefaultVoiceId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const supabase = createClient();
+
+  // Load agent data
+  useEffect(() => {
+    const loadAgent = async () => {
+      const { data } = await supabase
+        .from('agents')
+        .select('id, name, core_prompt, default_voice_id')
+        .eq('user_id', userId)
+        .eq('type', 'personal')
+        .single();
+      
+      if (data) {
+        setAgentId(data.id);
+        setAgentName(data.name || 'Eve');
+        setAgentPrompt(data.core_prompt || '');
+        setDefaultVoiceId(data.default_voice_id || AVAILABLE_VOICES[0].id);
+      }
+    };
+    loadAgent();
+  }, [userId, supabase]);
+
+  const handleSaveAgent = async () => {
+    setSaving(true);
+    try {
+      await fetch('/api/update-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId,
+          name: agentName,
+          prompt: agentPrompt,
+          defaultVoiceId,
+        }),
+      });
+      // Reload page to update agent name everywhere
+      window.location.reload();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const tabs = [
     { id: 'general' as const, label: 'General', icon: User },
+    { id: 'agent' as const, label: 'Agent', icon: Sparkles },
     { id: 'import' as const, label: 'Import', icon: Upload },
     { id: 'domains' as const, label: 'Expertise', icon: Database },
     { id: 'privacy' as const, label: 'Privacy', icon: Shield },
@@ -81,6 +130,82 @@ export default function SettingsPanel({ userId, onClose, onImportComplete }: Set
                   This will permanently delete your agent, conversations, and memories.
                 </p>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'agent' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Agent Personality</h3>
+                <p className="text-gray-600 mb-6">
+                  Customize your AI companion's name and personality
+                </p>
+              </div>
+
+              {/* Agent Name */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  Agent Name
+                </label>
+                <input
+                  type="text"
+                  value={agentName}
+                  onChange={(e) => setAgentName(e.target.value)}
+                  placeholder="e.g., Eve, Ara, Nova..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                />
+              </div>
+
+              {/* Personality Prompt */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  Personality Prompt
+                </label>
+                <textarea
+                  value={agentPrompt}
+                  onChange={(e) => setAgentPrompt(e.target.value)}
+                  placeholder="Describe your agent's personality, tone, and behavior..."
+                  rows={12}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  💡 This defines how your agent thinks, speaks, and behaves in every conversation
+                </p>
+              </div>
+
+              {/* Default Voice */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">
+                  Default Voice
+                </label>
+                <select
+                  value={defaultVoiceId}
+                  onChange={(e) => setDefaultVoiceId(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  {AVAILABLE_VOICES.map((voice) => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.name} - {voice.description}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  🎤 This voice will be used when voice mode is set to "Auto"
+                </p>
+              </div>
+
+              {/* Save Button */}
+              <button
+                onClick={handleSaveAgent}
+                disabled={saving || !agentName.trim()}
+                className="w-full bg-black text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+
+              <p className="text-xs text-gray-500 text-center">
+                Changes will take effect immediately. The page will reload after saving.
+              </p>
             </div>
           )}
 

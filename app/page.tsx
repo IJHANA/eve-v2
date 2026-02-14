@@ -22,6 +22,9 @@ export default function Home() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
+  // Agent state
+  const [agentName, setAgentName] = useState('Eve');
+  
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -49,6 +52,20 @@ export default function Home() {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setLoading(false);
+
+      // Load agent name
+      if (session) {
+        const { data: agent } = await supabase
+          .from('agents')
+          .select('name')
+          .eq('user_id', session.user.id)
+          .eq('type', 'personal')
+          .single();
+        
+        if (agent?.name) {
+          setAgentName(agent.name);
+        }
+      }
     };
 
     getSession();
@@ -299,9 +316,9 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 ? (
                 <div className="text-center py-12">
-                  <h2 className="text-2xl font-bold mb-2">Chat with Eve</h2>
+                  <h2 className="text-2xl font-bold mb-2">Chat with {agentName}</h2>
                   <p className="text-gray-600">
-                    Start a conversation. Eve remembers everything.
+                    Start a conversation. {agentName} remembers everything.
                   </p>
                 </div>
               ) : (
@@ -320,7 +337,7 @@ export default function Home() {
             <ChatInput
               onSend={handleSendMessage}
               disabled={isSending}
-              placeholder={isSending ? 'Eve is thinking...' : 'Message Eve...'}
+              placeholder={isSending ? `${agentName} is thinking...` : `Message ${agentName}...`}
             />
           </main>
         </div>

@@ -10,7 +10,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { agentId, name, prompt } = await req.json();
+    const { agentId, name, prompt, defaultVoiceId } = await req.json();
 
     if (!agentId) {
       return NextResponse.json(
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       .update({
         name: name || 'Eve',
         core_prompt: prompt || null,
+        default_voice_id: defaultVoiceId || null,
       })
       .eq('id', agentId);
 

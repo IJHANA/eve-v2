@@ -4,12 +4,13 @@
 
 import { useState } from 'react';
 import { Sparkles, Loader } from 'lucide-react';
+import { AVAILABLE_VOICES } from '@/lib/voice';
 
 interface AgentCustomizationProps {
   suggestedName?: string;
   suggestedPrompt?: string;
   messageCount: number;
-  onSave: (name: string, prompt: string) => Promise<void>;
+  onSave: (name: string, prompt: string, voiceId: string) => Promise<void>;
   onSkip: () => void;
 }
 
@@ -22,6 +23,7 @@ export default function AgentCustomization({
 }: AgentCustomizationProps) {
   const [name, setName] = useState(suggestedName);
   const [prompt, setPrompt] = useState(suggestedPrompt || '');
+  const [voiceId, setVoiceId] = useState(AVAILABLE_VOICES[0].id);
   const [saving, setSaving] = useState(false);
   const [generatingPrompt, setGeneratingPrompt] = useState(false);
 
@@ -48,7 +50,7 @@ export default function AgentCustomization({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave(name.trim() || 'Eve', prompt.trim());
+      await onSave(name.trim() || 'Eve', prompt.trim(), voiceId);
     } finally {
       setSaving(false);
     }
@@ -117,6 +119,27 @@ export default function AgentCustomization({
           
           <p className="text-xs text-gray-500 mt-2">
             💡 This defines how your agent thinks, speaks, and behaves. Be as detailed as you want!
+          </p>
+        </div>
+
+        {/* Default Voice */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold mb-2">
+            Default Voice
+          </label>
+          <select
+            value={voiceId}
+            onChange={(e) => setVoiceId(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+          >
+            {AVAILABLE_VOICES.map((voice) => (
+              <option key={voice.id} value={voice.id}>
+                {voice.name} - {voice.description}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-2">
+            🎤 This voice will be used when voice mode is set to "Auto"
           </p>
         </div>
 
