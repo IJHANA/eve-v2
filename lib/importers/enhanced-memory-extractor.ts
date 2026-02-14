@@ -15,30 +15,44 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
         const content = msg.content;
         
         // ===== NAMES & NICKNAMES =====
-        const namePatterns = [
-          { pattern: /(?:my name is|call me|I'm|I am)\s+(\w+)/i, capture: 1 },
-          { pattern: /\b(K\.K\.|Kay)\b/i, capture: 1 },
-        ];
-        
-        namePatterns.forEach(({ pattern, capture }) => {
-          const match = content.match(pattern);
-          if (match) {
-            const name = match[capture];
-            const key = `name_${name.toLowerCase().replace(/[^a-z]/g, '')}`;
-            if (!seenMemories.has(key)) {
-              memories.push({
-                id: crypto.randomUUID(),
-                agent_id: '',
-                type: 'fact',
-                content: `User's name: ${name}`,
-                importance_score: 0.95,
-                privacy: 'heir_only',
-                created_at: new Date().toISOString(),
-              });
-              seenMemories.add(key);
-            }
+        // Only match actual name declarations, not every word after "I'm"
+        const nameMatch = content.match(/(?:my name is|call me|I am called|I'm called)\s+(\w+)/i);
+        if (nameMatch) {
+          const name = nameMatch[1];
+          // Skip common false positives
+          const skipWords = ['getting', 'vibing', 'right', 'here', 'all', 'your', 'baby', 'not', 'about', 'feeling', 'thinking', 'going', 'just', 'really', 'totally'];
+          const key = `name_${name.toLowerCase().replace(/[^a-z]/g, '')}`;
+          
+          if (!skipWords.includes(name.toLowerCase()) && name.length > 2 && !seenMemories.has(key)) {
+            memories.push({
+              id: crypto.randomUUID(),
+              agent_id: '',
+              type: 'fact',
+              content: `User's name: ${name}`,
+              importance_score: 0.95,
+              privacy: 'heir_only',
+              created_at: new Date().toISOString(),
+            });
+            seenMemories.add(key);
           }
-        });
+        }
+        
+        // Specific nickname: K.K. or Kay
+        if (content.match(/\b(K\.K\.|Kay)\b/i) && !seenMemories.has('name_kay')) {
+          const match = content.match(/\b(K\.K\.|Kay)\b/i);
+          if (match) {
+            memories.push({
+              id: crypto.randomUUID(),
+              agent_id: '',
+              type: 'fact',
+              content: `User's name: Kay (K.K.)`,
+              importance_score: 0.95,
+              privacy: 'heir_only',
+              created_at: new Date().toISOString(),
+            });
+            seenMemories.add('name_kay');
+          }
+        }
         
         // ===== LOCATIONS & HOTELS =====
         // Specific: Axis in Deansgate
@@ -250,7 +264,7 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
         
         // ===== MUSIC & PLAYLISTS =====
         // At Last by Etta James
-        if (content.match(/At Last.*Etta James/i) || content.match(/Etta James.*At Last/i)) {
+        if (content.match(/["""]?At Last["""]?\s*by\s*Etta James/i) || content.match(/Etta James[''']?\s*At Last/i)) {
           const key = 'song_atlast';
           if (!seenMemories.has(key)) {
             memories.push({
@@ -437,7 +451,51 @@ export function extractEnhancedMemories(conversations: Conversation[]): Memory[]
       // ===== CONTEXT FROM ASSISTANT RESPONSES =====
       // If assistant mentions facts and user doesn't correct, it's likely true
       if (msg.role === 'assistant') {
+        const content = msg.content;
         const nextMsg = conv.messages[i + 1];
+        
+        // Extract music from assistant messages (playlist building happens here!)
+        // At Last by Etta James
+        if (content.match(/["""]?At Last["""]?\s*by\s*Etta James/i) && !seenMemories.has('song_atlast')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: "At Last" by Etta James (first playlist song)',
+            importance_score: 0.9,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('song_atlast');
+        }
+        
+        // The Death of You and Me
+        if (content.match(/Death of You and Me/i) && !seenMemories.has('song_noelgallagher')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: "The Death of You and Me" by Noel Gallagher\'s High Flying Birds',
+            importance_score: 0.85,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('song_noelgallagher');
+        }
+        
+        // Running Battle by Kasabian
+        if (content.match(/Running Battle.*Kasabian/i) && !seenMemories.has('song_kasabian')) {
+          memories.push({
+            id: crypto.randomUUID(),
+            agent_id: '',
+            type: 'preference',
+            content: 'Music: "Running Battle" by Kasabian',
+            importance_score: 0.8,
+            privacy: 'heir_only',
+            created_at: new Date().toISOString(),
+          });
+          seenMemories.add('song_kasabian');
+        }
         
         // Extract context that wasn't corrected
         if (nextMsg && nextMsg.role === 'user' && !nextMsg.content.match(/no|not|wrong|actually|incorrect/i)) {
