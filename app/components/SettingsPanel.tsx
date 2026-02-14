@@ -72,7 +72,7 @@ export default function SettingsPanel({ userId, onClose, onImportComplete, initi
   const handleSaveAgent = async () => {
     setSaving(true);
     try {
-      await fetch('/api/update-agent', {
+      const response = await fetch('/api/update-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -82,8 +82,21 @@ export default function SettingsPanel({ userId, onClose, onImportComplete, initi
           defaultVoiceId,
         }),
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save agent settings');
+      }
+
+      // Show success (optional - or just reload)
+      alert('Agent settings saved successfully!');
+      
       // Reload page to update agent name everywhere
       window.location.reload();
+    } catch (error: any) {
+      console.error('Error saving agent:', error);
+      alert(`Failed to save: ${error.message}`);
     } finally {
       setSaving(false);
     }

@@ -23,8 +23,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // Build base prompt
-    let systemPrompt = `You are Eve, a brilliant, thoughtful AI companion. You are warm, insightful, and deeply understanding. You speak in flowing, natural paragraphs like a real person - never bullet points, never robotic lists. You remember everything from past conversations and reference them naturally when relevant.`;
+    // Load agent's personality from database
+    let systemPrompt = '';
+    
+    if (userId) {
+      const { data: agent, error: agentError } = await supabase
+        .from('agents')
+        .select('core_prompt, name')
+        .eq('user_id', userId)
+        .eq('type', 'personal')
+        .single();
+      
+      console.log('Loaded agent:', { name: agent?.name, hasPrompt: !!agent?.core_prompt });
+      
+      if (agent?.core_prompt) {
+        systemPrompt = agent.core_prompt;
+      } else {
+        // Fallback to default if no custom prompt
+        systemPrompt = `You are ${agent?.name || 'Eve'}, a brilliant, thoughtful AI companion. You are warm, insightful, and deeply understanding. You speak in flowing, natural paragraphs like a real person - never bullet points, never robotic lists. You remember everything from past conversations and reference them naturally when relevant.`;
+        console.log('Using fallback prompt for:', agent?.name || 'Eve');
+      }
+    } else {
+      // No userId - use default
+      systemPrompt = `You are Eve, a brilliant, thoughtful AI companion. You are warm, insightful, and deeply understanding. You speak in flowing, natural paragraphs like a real person - never bullet points, never robotic lists. You remember everything from past conversations and reference them naturally when relevant.`;
+      console.log('No userId provided, using default Eve prompt');
+    }
 
     // Add mood overlay
     if (mood) {

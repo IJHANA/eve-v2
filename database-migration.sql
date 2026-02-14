@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS agents (
   type TEXT NOT NULL DEFAULT 'personal' CHECK (type IN ('personal', 'shared')),
   
   -- Personality configuration
-  core_prompt TEXT NOT NULL,
+  core_prompt TEXT,
   default_mood JSONB DEFAULT '{
     "empathy": 0.7,
     "directness": 0.5,
@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS agents (
   }'::jsonb,
   
   -- Voice configuration
+  default_voice_id TEXT,
   voice_mode TEXT DEFAULT 'auto' CHECK (voice_mode IN ('auto', 'locked')),
   locked_voice_id TEXT,
   locked_voice_settings JSONB,

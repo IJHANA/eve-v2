@@ -12,6 +12,8 @@ export async function POST(req: NextRequest) {
   try {
     const { agentId, name, prompt, defaultVoiceId } = await req.json();
 
+    console.log('Update agent request:', { agentId, name, hasPrompt: !!prompt, defaultVoiceId });
+
     if (!agentId) {
       return NextResponse.json(
         { error: 'Agent ID is required' },
@@ -20,24 +22,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Update agent
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('agents')
       .update({
         name: name || 'Eve',
         core_prompt: prompt || null,
         default_voice_id: defaultVoiceId || null,
       })
-      .eq('id', agentId);
+      .eq('id', agentId)
+      .select();
 
     if (error) {
       console.error('Error updating agent:', error);
       return NextResponse.json(
-        { error: 'Failed to update agent' },
+        { error: `Failed to update agent: ${error.message}` },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    console.log('Agent updated successfully:', data);
+
+    return NextResponse.json({ success: true, agent: data });
 
   } catch (error: any) {
     console.error('Update agent API error:', error);
