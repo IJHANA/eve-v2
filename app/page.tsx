@@ -37,6 +37,7 @@ export default function Home() {
   // UI state
   const [showMoodControls, setShowMoodControls] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'general' | 'agent' | 'import' | 'domains' | 'privacy'>('general');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -65,6 +66,15 @@ export default function Home() {
         if (agent?.name) {
           setAgentName(agent.name);
         }
+      }
+
+      // Check for openSettings parameter
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('openSettings') === 'agent' && session) {
+        setSettingsTab('agent');
+        setShowSettings(true);
+        // Clean up URL
+        window.history.replaceState({}, '', '/');
       }
     };
 
@@ -351,6 +361,7 @@ export default function Home() {
               setShowSettings(false);
               // Optionally refresh page or show success message
             }}
+            initialTab={settingsTab}
           />
         )}
       </div>

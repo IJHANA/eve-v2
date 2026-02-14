@@ -12,10 +12,11 @@ interface SettingsPanelProps {
   userId: string;
   onClose: () => void;
   onImportComplete: (agentId: string) => void;
+  initialTab?: 'general' | 'agent' | 'import' | 'domains' | 'privacy';
 }
 
-export default function SettingsPanel({ userId, onClose, onImportComplete }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'agent' | 'import' | 'domains' | 'privacy'>('general');
+export default function SettingsPanel({ userId, onClose, onImportComplete, initialTab = 'general' }: SettingsPanelProps) {
+  const [activeTab, setActiveTab] = useState<'general' | 'agent' | 'import' | 'domains' | 'privacy'>(initialTab);
   const [agentName, setAgentName] = useState('');
   const [agentPrompt, setAgentPrompt] = useState('');
   const [agentId, setAgentId] = useState('');

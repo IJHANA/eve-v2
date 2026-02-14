@@ -130,15 +130,27 @@ export default function ImportFlow({ userId, onComplete, onCancel }: ImportFlowP
             </div>
           </div>
 
-          <button
-            onClick={() => onComplete(result.agent_id)}
-            className="w-full bg-black text-white px-8 py-4 rounded-xl font-medium hover:bg-gray-800 transition-all"
-          >
-            Continue to Chat →
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={() => onComplete(result.agent_id)}
+              className="flex-1 bg-black text-white px-8 py-4 rounded-xl font-medium hover:bg-gray-800 transition-all"
+            >
+              Continue to Chat →
+            </button>
+
+            <button
+              onClick={() => {
+                // Redirect to home with a flag to open settings on Agent tab
+                window.location.href = '/?openSettings=agent';
+              }}
+              className="flex-1 bg-purple-600 text-white px-8 py-4 rounded-xl font-medium hover:bg-purple-700 transition-all"
+            >
+              ✨ Customize Agent
+            </button>
+          </div>
 
           <p className="text-xs text-gray-500 mt-4">
-            Customize your agent's name and personality anytime in Settings → ✨ Agent
+            Start chatting or customize your agent's name and personality
           </p>
         </div>
       </div>
