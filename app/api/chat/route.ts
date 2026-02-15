@@ -240,23 +240,36 @@ export async function POST(req: NextRequest) {
           { role: 'assistant', content: response } // Current EVE response
         ];
         
+        console.log(`[Memory Extraction] ===== DEBUG =====`);
+        console.log(`[Memory Extraction] Total messages in history: ${history.length}`);
+        console.log(`[Memory Extraction] Messages to process: ${conversationMessages.length}`);
+        console.log(`[Memory Extraction] Agent ID: ${agentId}`);
+        console.log(`[Memory Extraction] User ID: ${userId}`);
+        
         // Only extract if we have 10+ messages
         if (conversationMessages.length >= 10) {
-          console.log(`[Memory Extraction] Triggering for ${conversationMessages.length} messages`);
+          console.log(`[Memory Extraction] ✅ TRIGGERING EXTRACTION for ${conversationMessages.length} messages`);
           
           // Extract in background (don't block response)
           OngoingMemoryExtractor.extractFromConversation(
             conversationMessages,
             agentId,
             userId
-          ).catch(err => {
-            console.error('[Memory Extraction] Failed:', err);
+          ).then((count) => {
+            console.log(`[Memory Extraction] ✅ SUCCESS - Extracted ${count} memories`);
+          }).catch(err => {
+            console.error('[Memory Extraction] ❌ FAILED:', err);
           });
+        } else {
+          console.log(`[Memory Extraction] ⏳ Waiting for more messages (need 10, have ${conversationMessages.length})`);
         }
       } catch (memExtractError) {
         // Don't fail the chat if memory extraction fails
-        console.error('[Memory Extraction] Error:', memExtractError);
+        console.error('[Memory Extraction] ❌ Exception:', memExtractError);
       }
+    } else {
+      console.log('[Memory Extraction] ⚠️ Skipped - No agentId or userId');
+      console.log(`[Memory Extraction] agentId: ${agentId}, userId: ${userId}`);
     }
 
     return NextResponse.json({ response });

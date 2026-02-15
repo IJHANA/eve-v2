@@ -88,12 +88,21 @@ export class OngoingMemoryExtractor {
   private static extractFacts(context: string, timestamp: string): ExtractedMemory[] {
     const memories: ExtractedMemory[] = [];
     
-    // Name
-    const namePattern = /(?:my name is|I'm|I am|call me)\s+([A-Z][a-z]+)/gi;
+    // Name (more specific to avoid false positives)
+    const namePattern = /(?:my name is|call me)\s+([A-Z][a-z]+)/gi;
     let match;
     while ((match = namePattern.exec(context)) !== null) {
       const name = match[1];
-      if (name && !['I', 'The', 'It'].includes(name)) {
+      // Exclude common verbs/words that might match
+      const excludeWords = ['I', 'The', 'It', 'There', 'This', 'That', 'These', 'Those', 
+                           'Going', 'Coming', 'Being', 'Having', 'Making', 'Taking',
+                           'Getting', 'Doing', 'Saying', 'Looking', 'Trying', 'Using',
+                           'Working', 'Calling', 'Asking', 'Feeling', 'Thinking', 'Knowing',
+                           'Starting', 'Running', 'Moving', 'Living', 'Giving', 'Finding',
+                           'Telling', 'Turning', 'Leaving', 'Bringing', 'Holding', 'Writing',
+                           'Standing', 'Sitting', 'Showing', 'Hearing', 'Playing', 'Happening',
+                           'Drawn', 'Seen', 'Done', 'Gone', 'Been', 'Had', 'Made', 'Said'];
+      if (name && !excludeWords.includes(name)) {
         memories.push({
           type: 'fact',
           content: `Name: ${name}`,
@@ -183,6 +192,113 @@ export class OngoingMemoryExtractor {
       }
     }
     
+    // Favorite writer/author
+    const favoriteWriterPattern = /(?:favorite|fav)\s+(?:writer|author)\s+(?:is\s+)?([A-Z][a-zA-Z\s.]+?)(?:\.|,|\n|$|who|whose)/gi;
+    while ((match = favoriteWriterPattern.exec(context)) !== null) {
+      const author = match[1]?.trim();
+      if (author && author.length < 50 && author.length > 3) {
+        memories.push({
+          type: 'preference',
+          content: `Favorite author: ${author}`,
+          category: 'books',
+          tags: ['books', 'author', 'literature', author.toLowerCase()],
+          importance_score: 0.95,
+          source: 'conversation',
+          timestamp: timestamp
+        });
+      }
+    }
+    
+    // Currently reading pattern
+    const currentlyReadingPattern = /(?:reading|currently reading|just finished|just read)\s+["']?([A-Z][^"'\n.!?]+?)["']?(?:\s+by\s+([A-Z][a-zA-Z\s.]+))?(?:\.|,|\n|$)/gi;
+    while ((match = currentlyReadingPattern.exec(context)) !== null) {
+      const title = match[1]?.trim();
+      const author = match[2]?.trim();
+      if (title && title.length < 100 && title.length > 3) {
+        memories.push({
+          type: 'experience',
+          content: `Reading: "${title}"${author ? ` by ${author}` : ''}`,
+          category: 'books',
+          tags: ['books', 'reading', 'current', title.toLowerCase()],
+          importance_score: 0.8,
+          source: 'conversation',
+          timestamp: timestamp
+        });
+      }
+    }
+    
+    // Favorite book by specific author pattern
+    const favoriteByAuthorPattern = /(?:my\s+)?favorite\s+([A-Z][a-zA-Z\s.]+?)\s+(?:book|novel|work)\s+(?:is\s+)?["']?([^"'\n.!?]+?)["']?(?:\.|,|\n|$|too)/gi;
+    while ((match = favoriteByAuthorPattern.exec(context)) !== null) {
+      const author = match[1]?.trim();
+      const title = match[2]?.trim();
+      if (title && title.length < 100 && title.length > 3) {
+        memories.push({
+          type: 'preference',
+          content: `Favorite ${author} book: "${title}"`,
+          category: 'books',
+          tags: ['books', 'favorite', 'literature', author.toLowerCase(), title.toLowerCase()],
+          importance_score: 0.9,
+          source: 'conversation',
+          timestamp: timestamp
+        });
+      }
+    }
+    
+    // Generic favorite book pattern
+    const favoriteBookPattern = /(?:my\s+)?favorite\s+(?:book|novel)\s+(?:is\s+)?["']?([A-Z][^"'\n.!?]+?)["']?(?:\s+by\s+([A-Z][a-zA-Z\s.]+))?(?:\.|,|\n|$|too)/gi;
+    while ((match = favoriteBookPattern.exec(context)) !== null) {
+      const title = match[1]?.trim();
+      const author = match[2]?.trim();
+      if (title && title.length < 100 && title.length > 3) {
+        memories.push({
+          type: 'preference',
+          content: `Favorite book: "${title}"${author ? ` by ${author}` : ''}`,
+          category: 'books',
+          tags: ['books', 'favorite', 'literature', title.toLowerCase()],
+          importance_score: 0.9,
+          source: 'conversation',
+          timestamp: timestamp
+        });
+      }
+    }
+    
+    // "I love [book]" pattern
+    const lovesBookPattern = /I\s+love\s+["']?([A-Z][A-Za-z\s]+?)["']?(?:\s+by\s+([A-Z][a-zA-Z\s.]+))?(?:\.|,|\n|$)/gi;
+    while ((match = lovesBookPattern.exec(context)) !== null) {
+      const title = match[1]?.trim();
+      const author = match[2]?.trim();
+      // Check if it's likely a book (capital letters, reasonable length)
+      if (title && title.length < 100 && title.length > 3 && /^[A-Z]/.test(title)) {
+        memories.push({
+          type: 'preference',
+          content: `Loves: "${title}"${author ? ` by ${author}` : ''}`,
+          category: 'books',
+          tags: ['books', 'favorite', title.toLowerCase()],
+          importance_score: 0.85,
+          source: 'conversation',
+          timestamp: timestamp
+        });
+      }
+    }
+    
+    // Favorite color
+    const colorPattern = /(?:my\s+)?favorite\s+colou?r\s+(?:is\s+)?([a-z]+)/gi;
+    while ((match = colorPattern.exec(context)) !== null) {
+      const color = match[1]?.trim();
+      if (color && color.length < 20) {
+        memories.push({
+          type: 'preference',
+          content: `Favorite color: ${color}`,
+          category: 'personal',
+          tags: ['color', 'favorite', 'personal'],
+          importance_score: 0.7,
+          source: 'conversation',
+          timestamp: timestamp
+        });
+      }
+    }
+    
     // Food preferences
     const foodPattern = /(?:favorite food|love eating|favorite restaurant|favorite dish)\s+(?:is\s+)?([^.!?\n]+)/gi;
     while ((match = foodPattern.exec(context)) !== null) {
@@ -200,7 +316,7 @@ export class OngoingMemoryExtractor {
       }
     }
     
-    // General likes
+    // General likes (but exclude short phrases)
     const likePattern = /I (?:really\s+)?(?:love|enjoy|like)\s+([a-z][a-z\s]+?)(?:\.|,|!|\n|$)/gi;
     while ((match = likePattern.exec(context)) !== null) {
       const thing = match[1]?.trim();
