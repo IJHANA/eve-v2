@@ -5,6 +5,7 @@ import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { buildMoodPrompt } from '@/lib/mood';
 import { detectRelevantDomains, getDomainRPCName, getDomainPrompt } from '@/lib/domain-detection';
+import { OngoingMemoryExtractor } from '@/lib/services/ongoing-memory-extractor';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -62,6 +63,39 @@ export async function POST(req: NextRequest) {
     // Fetch relevant memories if we have an agent
     if (agentId) {
       let memoriesAdded = false;
+      
+      // Check if this is a temporal query
+      const isTemporalQuery = /(?:last|yesterday|this)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month|year)|in\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|2024|2025|2026)/i.test(message);
+      
+      if (isTemporalQuery) {
+        try {
+          console.log('Detected temporal query, using temporal search');
+          const temporalResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/memories/temporal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: message, agentId, userId })
+          });
+          
+          if (temporalResponse.ok) {
+            const { memories: temporalMemories } = await temporalResponse.json();
+            
+            if (temporalMemories && temporalMemories.length > 0) {
+              const memoryText = temporalMemories
+                .map((m: any) => `- ${m.content} (mentioned on ${new Date(m.mentioned_at).toLocaleDateString()})`)
+                .join('\n');
+              
+              systemPrompt += `\n\nMEMORIES FROM THE REQUESTED TIME PERIOD:\n${memoryText}`;
+              console.log(`✅ Added ${temporalMemories.length} temporal memories`);
+              memoriesAdded = true;
+            }
+          }
+        } catch (tempErr) {
+          console.error('Temporal search failed, falling back to semantic:', tempErr);
+        }
+      }
+      
+      // If not temporal or temporal failed, use semantic search
+      if (!memoriesAdded) {
       
       try {
         // Get embedding for the message
@@ -135,6 +169,7 @@ export async function POST(req: NextRequest) {
           console.error('❌ Fallback memory loading failed:', fallbackErr);
         }
       }
+      } // End of !memoriesAdded block
     } else {
       console.log('❌ No agentId - cannot load memories');
     }
@@ -195,8 +230,34 @@ export async function POST(req: NextRequest) {
 
     const response = completion.choices[0]?.message?.content || "I'm here with you.";
 
-    // TODO: Save conversation to database
-    // TODO: Extract memories from conversation
+    // 🔥 NEW: Extract memories from conversation
+    if (agentId && userId) {
+      try {
+        // Get current conversation history (last 10 messages)
+        const conversationMessages = [
+          ...history.slice(-9), // Last 9 from history
+          { role: 'user', content: message }, // Current user message
+          { role: 'assistant', content: response } // Current EVE response
+        ];
+        
+        // Only extract if we have 10+ messages
+        if (conversationMessages.length >= 10) {
+          console.log(`[Memory Extraction] Triggering for ${conversationMessages.length} messages`);
+          
+          // Extract in background (don't block response)
+          OngoingMemoryExtractor.extractFromConversation(
+            conversationMessages,
+            agentId,
+            userId
+          ).catch(err => {
+            console.error('[Memory Extraction] Failed:', err);
+          });
+        }
+      } catch (memExtractError) {
+        // Don't fail the chat if memory extraction fails
+        console.error('[Memory Extraction] Error:', memExtractError);
+      }
+    }
 
     return NextResponse.json({ response });
 
