@@ -21,7 +21,9 @@ export default function SettingsPanel({ userId, onClose, onImportComplete, initi
   const [agentPrompt, setAgentPrompt] = useState('');
   const [agentId, setAgentId] = useState('');
   const [defaultVoiceId, setDefaultVoiceId] = useState('');
+  const [responseLength, setResponseLength] = useState<'brief' | 'standard' | 'detailed' | 'comprehensive'>('standard');
   const [saving, setSaving] = useState(false);
+  const [savingResponseLength, setSavingResponseLength] = useState(false);
   const [voices, setVoices] = useState<any[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
   const supabase = createClient();
@@ -52,18 +54,30 @@ export default function SettingsPanel({ userId, onClose, onImportComplete, initi
   // Load agent data
   useEffect(() => {
     const loadAgent = async () => {
-      const { data } = await supabase
+      // Load agent data
+      const { data: agentData } = await supabase
         .from('agents')
         .select('id, name, core_prompt, default_voice_id')
         .eq('user_id', userId)
         .eq('type', 'personal')
         .single();
       
-      if (data) {
-        setAgentId(data.id);
-        setAgentName(data.name || 'Eve');
-        setAgentPrompt(data.core_prompt || '');
-        setDefaultVoiceId(data.default_voice_id || '21m00Tcm4TlvDq8ikWAM'); // Rachel legacy default
+      if (agentData) {
+        setAgentId(agentData.id);
+        setAgentName(agentData.name || 'Eve');
+        setAgentPrompt(agentData.core_prompt || '');
+        setDefaultVoiceId(agentData.default_voice_id || '21m00Tcm4TlvDq8ikWAM'); // Rachel legacy default
+      }
+      
+      // Load response length preference
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('response_length')
+        .eq('id', userId)
+        .single();
+      
+      if (profileData && profileData.response_length) {
+        setResponseLength(profileData.response_length as 'brief' | 'standard' | 'detailed' | 'comprehensive');
       }
     };
     loadAgent();
@@ -99,6 +113,35 @@ export default function SettingsPanel({ userId, onClose, onImportComplete, initi
       alert(`Failed to save: ${error.message}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveResponseLength = async (newLength: 'brief' | 'standard' | 'detailed' | 'comprehensive') => {
+    setSavingResponseLength(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ response_length: newLength })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      setResponseLength(newLength);
+      
+      // Optional: Show success message
+      const lengthNames = {
+        brief: 'Brief (~100 words)',
+        standard: 'Standard (~200 words)',
+        detailed: 'Detailed (~400 words)',
+        comprehensive: 'Comprehensive (no limit)'
+      };
+      
+      alert(`Response length updated to: ${lengthNames[newLength]}`);
+    } catch (error: any) {
+      console.error('Error saving response length:', error);
+      alert(`Failed to save: ${error.message}`);
+    } finally {
+      setSavingResponseLength(false);
     }
   };
 
@@ -157,6 +200,100 @@ export default function SettingsPanel({ userId, onClose, onImportComplete, initi
                     <p className="text-sm font-mono text-gray-900">{userId}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Response Length Preference */}
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Response Length</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Control how detailed EVE's responses are. Shorter responses are faster and use fewer tokens.
+                </p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Brief */}
+                  <button
+                    onClick={() => handleSaveResponseLength('brief')}
+                    disabled={savingResponseLength}
+                    className={`p-4 border-2 rounded-lg text-left transition ${
+                      responseLength === 'brief'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold">Brief</span>
+                      {responseLength === 'brief' && (
+                        <span className="text-purple-600 text-xs font-medium">ACTIVE</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600">~100 words</p>
+                    <p className="text-xs text-gray-500 mt-1">Quick, concise answers</p>
+                  </button>
+
+                  {/* Standard */}
+                  <button
+                    onClick={() => handleSaveResponseLength('standard')}
+                    disabled={savingResponseLength}
+                    className={`p-4 border-2 rounded-lg text-left transition ${
+                      responseLength === 'standard'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold">Standard</span>
+                      {responseLength === 'standard' && (
+                        <span className="text-purple-600 text-xs font-medium">ACTIVE</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600">~200 words</p>
+                    <p className="text-xs text-gray-500 mt-1">Balanced depth & brevity</p>
+                  </button>
+
+                  {/* Detailed */}
+                  <button
+                    onClick={() => handleSaveResponseLength('detailed')}
+                    disabled={savingResponseLength}
+                    className={`p-4 border-2 rounded-lg text-left transition ${
+                      responseLength === 'detailed'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold">Detailed</span>
+                      {responseLength === 'detailed' && (
+                        <span className="text-purple-600 text-xs font-medium">ACTIVE</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600">~400 words</p>
+                    <p className="text-xs text-gray-500 mt-1">Thorough explanations</p>
+                  </button>
+
+                  {/* Comprehensive */}
+                  <button
+                    onClick={() => handleSaveResponseLength('comprehensive')}
+                    disabled={savingResponseLength}
+                    className={`p-4 border-2 rounded-lg text-left transition ${
+                      responseLength === 'comprehensive'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold">Comprehensive</span>
+                      {responseLength === 'comprehensive' && (
+                        <span className="text-purple-600 text-xs font-medium">ACTIVE</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600">No limit</p>
+                    <p className="text-xs text-gray-500 mt-1">Full, in-depth responses</p>
+                  </button>
+                </div>
+
+                {savingResponseLength && (
+                  <p className="text-sm text-purple-600 mt-3">Saving...</p>
+                )}
               </div>
 
               <div>
