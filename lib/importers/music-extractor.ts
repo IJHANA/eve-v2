@@ -78,9 +78,25 @@ export function extractSongsWithPatterns(conversations: Conversation[]): Song[] 
       while ((match = quotedByPattern.exec(content)) !== null) {
         const title = match[1].trim();
         const artist = match[2].trim();
+        
+        // STRICT VALIDATION: Filter out garbage
+        // Must have: capitalized title, real artist name, reasonable length
+        const isValidTitle = 
+          title.length >= 3 && 
+          title.length <= 60 &&
+          title.match(/^[A-Z]/) && // Must start with capital
+          !title.match(/^(you|me|my|I|it|that|this|for|with|about|how|what|when|where|why)\b/i); // No common words
+        
+        const isValidArtist = 
+          artist.length >= 3 && 
+          artist.length <= 50 &&
+          artist.match(/^[A-Z]/) && // Must start with capital
+          !artist.match(/^(Vibe|Why|Can|Design|Core|Making|Adding)$/i) && // No generic words
+          !artist.split(/\s+/).every(word => word.length < 3); // Artist must have some real words
+        
         const key = `${title.toLowerCase()}_${artist.toLowerCase()}`;
         
-        if (!seenSongs.has(key) && title.length > 2) {
+        if (!seenSongs.has(key) && isValidTitle && isValidArtist) {
           songs.push({ title, artist });
           seenSongs.add(key);
         }
@@ -91,13 +107,21 @@ export function extractSongsWithPatterns(conversations: Conversation[]): Song[] 
       while ((match = dashPattern.exec(content)) !== null) {
         const title = match[1].trim();
         const artist = match[2].trim();
+        
+        // STRICT VALIDATION
+        const isValidTitle = 
+          title.length >= 3 && 
+          title.length <= 60 &&
+          !title.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)/i) &&
+          !title.match(/^(The|A|An|This|That)\s+(Only|First|Last|Next|Main|Best|Worst)$/i); // No generic phrases
+        
+        const isValidArtist =
+          artist.length >= 3 &&
+          artist.length <= 50;
+        
         const key = `${title.toLowerCase()}_${artist.toLowerCase()}`;
         
-        // Filter out non-song patterns
-        if (!seenSongs.has(key) && 
-            title.length > 2 && 
-            title.length < 50 &&
-            !title.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)/i)) {
+        if (!seenSongs.has(key) && isValidTitle && isValidArtist) {
           songs.push({ title, artist });
           seenSongs.add(key);
         }
@@ -117,6 +141,9 @@ export function extractSongsWithPatterns(conversations: Conversation[]): Song[] 
       }
 
       // Pattern 4: "listening to / playing / heard" Song
+      // DISABLED: This pattern causes too many false positives
+      // Use inline tags [song: Title | artist: Artist] instead
+      /*
       const listeningPattern = /(?:listening to|playing|heard|love)\s+["']?([A-Z][a-zA-Z\s']+)["']?/gi;
       while ((match = listeningPattern.exec(content)) !== null) {
         const title = match[1].trim();
@@ -128,6 +155,7 @@ export function extractSongsWithPatterns(conversations: Conversation[]): Song[] 
           seenSongs.add(key);
         }
       }
+      */
 
       // Pattern 5: Known songs from your history
       const knownSongs = [
