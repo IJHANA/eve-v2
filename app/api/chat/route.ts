@@ -24,9 +24,56 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID required' }, { status: 401 });
+    }
+
+    // ===== RATE LIMITING CHECK =====
+    const { data: rateLimitCheck, error: rateLimitError } = await supabase.rpc('can_send_message', {
+      p_user_id: userId
+    });
+
+    if (rateLimitError) {
+      console.error('Rate limit check failed:', rateLimitError);
+    } else if (rateLimitCheck && rateLimitCheck.length > 0) {
+      const check = rateLimitCheck[0];
+      
+      if (!check.allowed) {
+        // Check if it's approval pending
+        if (check.reason === 'Account pending approval') {
+          return NextResponse.json(
+            { error: 'APPROVAL_PENDING', message: 'Your account is awaiting approval' },
+            { status: 403 }
+          );
+        }
+        
+        // Check if it's rate limit
+        if (check.reason === 'Daily message limit reached') {
+          return NextResponse.json(
+            { error: 'RATE_LIMIT_DAILY', message: 'You have reached your daily message limit. Please try again tomorrow.' },
+            { status: 429 }
+          );
+        }
+        
+        if (check.reason === 'Please wait before sending another message') {
+          return NextResponse.json(
+            { 
+              error: 'RATE_LIMIT_COOLDOWN', 
+              message: `Please wait ${check.wait_seconds} seconds before sending another message.`,
+              waitSeconds: check.wait_seconds
+            },
+            { status: 429 }
+          );
+        }
+      }
+      
+      console.log(`Rate limit check passed. Messages remaining today: ${check.messages_remaining}`);
+    }
+
     // Load agent's personality from database
     let systemPrompt = '';
     let agentId = '';
+    let responseLength = 'standard'; // default
     
     if (userId) {
       const { data: agent, error: agentError } = await supabase
@@ -49,6 +96,17 @@ export async function POST(req: NextRequest) {
           console.log('Using fallback prompt for:', agent.name || 'Eve');
         }
       }
+      
+      // Get user's response length preference
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('response_length')
+        .eq('id', userId)
+        .single();
+      
+      if (profile && profile.response_length) {
+        responseLength = profile.response_length;
+      }
     } else {
       // No userId - use default
       systemPrompt = `You are Eve, a brilliant, thoughtful AI companion. You are warm, insightful, and deeply understanding. You speak in flowing, natural paragraphs like a real person - never bullet points, never robotic lists. You remember everything from past conversations and reference them naturally when relevant.`;
@@ -59,6 +117,16 @@ export async function POST(req: NextRequest) {
     const today = new Date();
     const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD
     systemPrompt += `\n\nIMPORTANT: Today's date is ${currentDate}. When referencing events from memories, use past tense for dates before today and future tense for dates after today. For example, if a concert happened in July 2025 and it's now February 2026, refer to it as "we saw" or "we went to" (past tense), not "we're seeing" (future tense).`;
+
+    // Add response length control
+    const lengthInstructions = {
+      brief: '\n\nRESPONSE LENGTH: Keep responses concise and under 100 words. Get straight to the point.',
+      standard: '\n\nRESPONSE LENGTH: Keep responses focused and under 200 words unless the user specifically asks for more detail. Be concise but warm.',
+      detailed: '\n\nRESPONSE LENGTH: You can provide detailed responses up to 400 words when appropriate. Balance depth with readability.',
+      comprehensive: '\n\nRESPONSE LENGTH: No word limit. Provide comprehensive, thorough responses when the topic warrants it.'
+    };
+    
+    systemPrompt += lengthInstructions[responseLength as keyof typeof lengthInstructions] || lengthInstructions.standard;
 
     // Fetch relevant memories if we have an agent
     if (agentId) {
@@ -229,6 +297,22 @@ export async function POST(req: NextRequest) {
     });
 
     const response = completion.choices[0]?.message?.content || "I'm here with you.";
+
+    // Log message usage for rate limiting
+    if (userId && agentId) {
+      try {
+        await supabase.rpc('log_message_usage', {
+          p_user_id: userId,
+          p_agent_id: agentId,
+          p_message_content: message.substring(0, 500), // Truncate for storage
+          p_response_content: response.substring(0, 500),
+          p_tokens_used: completion.usage?.total_tokens || null
+        });
+      } catch (logError) {
+        console.error('Failed to log message usage:', logError);
+        // Don't fail the request if logging fails
+      }
+    }
 
     // 🔥 NEW: Extract memories from conversation
     if (agentId && userId) {

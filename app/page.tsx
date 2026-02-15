@@ -10,6 +10,7 @@ import { getVoiceForMood } from '@/lib/voice';
 import { Mood, Message, VoiceMode } from '@/types';
 import AgeGate from './components/AgeGate';
 import CookieBanner from './components/CookieBanner';
+import ApprovalPending from './components/ApprovalPending';
 import MoodControl from './components/MoodControl';
 import VoiceControl from './components/VoiceControl';
 import ChatMessage from './components/ChatMessage';
@@ -21,6 +22,7 @@ export default function Home() {
   // Auth state
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [approved, setApproved] = useState(true); // Approval status
   
   // Agent state
   const [agentName, setAgentName] = useState('Eve');
@@ -52,10 +54,21 @@ export default function Home() {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
-      setLoading(false);
 
-      // Load agent name
+      // Load agent name and check approval
       if (session) {
+        // Check approval status
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('approved')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile) {
+          setApproved(profile.approved || false);
+        }
+        
+        // Load agent name
         const { data: agent } = await supabase
           .from('agents')
           .select('name')
@@ -67,6 +80,8 @@ export default function Home() {
           setAgentName(agent.name);
         }
       }
+      
+      setLoading(false);
 
       // Check for openSettings parameter
       const params = new URLSearchParams(window.location.search);
@@ -83,6 +98,20 @@ export default function Home() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
+        
+        // Check approval on auth change
+        if (session) {
+          supabase
+            .from('profiles')
+            .select('approved')
+            .eq('id', session.user.id)
+            .single()
+            .then(({ data }) => {
+              if (data) {
+                setApproved(data.approved || false);
+              }
+            });
+        }
       }
     );
 
@@ -259,6 +288,11 @@ export default function Home() {
         </div>
       </>
     );
+  }
+
+  // Approval pending
+  if (!approved) {
+    return <ApprovalPending />;
   }
 
   // Main chat interface
