@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { detectParser } from '@/lib/importers';
 import { extractEnhancedMemories } from '@/lib/importers/enhanced-memory-extractor';
 import { extractMemoriesWithAI, mergeMemories } from '@/lib/importers/ai-memory-extractor';
+import { extractSongsWithPatterns, songsToMemories } from '@/lib/importers/music-extractor';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -47,17 +48,31 @@ export async function POST(req: NextRequest) {
     // Run enhanced memory extraction to get MORE memories (pattern-based)
     const enhancedMemories = extractEnhancedMemories(importedData.conversations);
     
+    // Extract songs from tagged formats [song: Title | artist: Artist]
+    console.log('Extracting songs from conversations...');
+    const songs = extractSongsWithPatterns(importedData.conversations);
+    const songMemories = songsToMemories(songs);
+    console.log(`Music extraction found ${songs.length} songs`);
+    
     // Run AI-powered memory extraction for rich, contextual memories
     console.log('Starting AI-powered memory extraction...');
     const aiMemories = await extractMemoriesWithAI(importedData.conversations, 100);
     console.log(`AI extraction found ${aiMemories.length} memories`);
     
-    // Merge all three sources: basic + enhanced + AI
+    // Merge all sources: basic + enhanced + songs + AI
     let allMemories = [...importedData.memories];
     
     // Add enhanced memories (pattern-based)
     const existingContents = new Set(allMemories.map(m => m.content.toLowerCase()));
     for (const mem of enhancedMemories) {
+      if (!existingContents.has(mem.content.toLowerCase())) {
+        allMemories.push(mem);
+        existingContents.add(mem.content.toLowerCase());
+      }
+    }
+    
+    // Add song memories
+    for (const mem of songMemories) {
       if (!existingContents.has(mem.content.toLowerCase())) {
         allMemories.push(mem);
         existingContents.add(mem.content.toLowerCase());
@@ -70,7 +85,7 @@ export async function POST(req: NextRequest) {
     // Replace with combined memories
     importedData.memories = allMemories;
     
-    console.log(`Total memories: ${importedData.memories.length} basic + ${enhancedMemories.length} pattern + ${aiMemories.length} AI = ${allMemories.length} final`);
+    console.log(`Total memories: ${importedData.memories.length} (basic: ${importedData.memories.length}, pattern: ${enhancedMemories.length}, songs: ${songs.length}, AI: ${aiMemories.length})`);
 
 
     // Check if user already has an agent
