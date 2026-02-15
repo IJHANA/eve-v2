@@ -33,10 +33,10 @@ export function extractSongsWithPatterns(conversations: Conversation[]): Song[] 
   for (const conv of conversations) {
     for (const msg of conv.messages) {
       const content = msg.content;
+      let match; // Declare once for all patterns
 
       // Pattern 0: Inline tags [song: Title | artist: Artist | album: Album]
       const inlineTagPattern = /\[song:\s*([^|\]]+?)(?:\s*\|\s*artist:\s*([^|\]]+?))?(?:\s*\|\s*album:\s*([^\]]+?))?\]/gi;
-      let match;
       while ((match = inlineTagPattern.exec(content)) !== null) {
         const title = match[1].trim();
         const artist = match[2]?.trim();
@@ -75,7 +75,6 @@ export function extractSongsWithPatterns(conversations: Conversation[]): Song[] 
 
       // Pattern 1: "Song Title" by Artist
       const quotedByPattern = /"([^"]+)"\s*by\s*([A-Z][a-zA-Z\s&'.]+)/gi;
-      let match;
       while ((match = quotedByPattern.exec(content)) !== null) {
         const title = match[1].trim();
         const artist = match[2].trim();
