@@ -35,6 +35,9 @@ export function extractSongsWithPatterns(conversations: Conversation[]): Song[] 
       const content = msg.content;
       let match; // Declare once for all patterns
 
+      // ===== MANUAL TAGS ONLY =====
+      // These are 100% reliable because user explicitly tagged them
+      
       // Pattern 0: Inline tags [song: Title | artist: Artist | album: Album]
       const inlineTagPattern = /\[song:\s*([^|\]]+?)(?:\s*\|\s*artist:\s*([^|\]]+?))?(?:\s*\|\s*album:\s*([^\]]+?))?\]/gi;
       while ((match = inlineTagPattern.exec(content)) !== null) {
@@ -73,88 +76,15 @@ export function extractSongsWithPatterns(conversations: Conversation[]): Song[] 
         }
       }
 
-      // Pattern 1: "Song Title" by Artist
-      const quotedByPattern = /"([^"]+)"\s*by\s*([A-Z][a-zA-Z\s&'.]+)/gi;
-      while ((match = quotedByPattern.exec(content)) !== null) {
-        const title = match[1].trim();
-        const artist = match[2].trim();
-        
-        // STRICT VALIDATION: Filter out garbage
-        // Must have: capitalized title, real artist name, reasonable length
-        const isValidTitle = 
-          title.length >= 3 && 
-          title.length <= 60 &&
-          title.match(/^[A-Z]/) && // Must start with capital
-          !title.match(/^(you|me|my|I|it|that|this|for|with|about|how|what|when|where|why)\b/i); // No common words
-        
-        const isValidArtist = 
-          artist.length >= 3 && 
-          artist.length <= 50 &&
-          artist.match(/^[A-Z]/) && // Must start with capital
-          !artist.match(/^(Vibe|Why|Can|Design|Core|Making|Adding)$/i) && // No generic words
-          !artist.split(/\s+/).every(word => word.length < 3); // Artist must have some real words
-        
-        const key = `${title.toLowerCase()}_${artist.toLowerCase()}`;
-        
-        if (!seenSongs.has(key) && isValidTitle && isValidArtist) {
-          songs.push({ title, artist });
-          seenSongs.add(key);
-        }
-      }
-
-      // Pattern 2: Song - Artist format
-      const dashPattern = /\b([A-Z][a-zA-Z\s']+)\s+-\s+([A-Z][a-zA-Z\s&]+)\b/g;
-      while ((match = dashPattern.exec(content)) !== null) {
-        const title = match[1].trim();
-        const artist = match[2].trim();
-        
-        // STRICT VALIDATION
-        const isValidTitle = 
-          title.length >= 3 && 
-          title.length <= 60 &&
-          !title.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)/i) &&
-          !title.match(/^(The|A|An|This|That)\s+(Only|First|Last|Next|Main|Best|Worst)$/i); // No generic phrases
-        
-        const isValidArtist =
-          artist.length >= 3 &&
-          artist.length <= 50;
-        
-        const key = `${title.toLowerCase()}_${artist.toLowerCase()}`;
-        
-        if (!seenSongs.has(key) && isValidTitle && isValidArtist) {
-          songs.push({ title, artist });
-          seenSongs.add(key);
-        }
-      }
-
-      // Pattern 3: Artist's "Song Title"
-      const possessivePattern = /([A-Z][a-zA-Z\s&]+)'?s?\s+"([^"]+)"/gi;
-      while ((match = possessivePattern.exec(content)) !== null) {
-        const artist = match[1].trim();
-        const title = match[2].trim();
-        const key = `${title.toLowerCase()}_${artist.toLowerCase()}`;
-        
-        if (!seenSongs.has(key) && title.length > 2) {
-          songs.push({ title, artist });
-          seenSongs.add(key);
-        }
-      }
-
-      // Pattern 4: "listening to / playing / heard" Song
-      // DISABLED: This pattern causes too many false positives
-      // Use inline tags [song: Title | artist: Artist] instead
+      // ===== AUTOMATIC PATTERNS DISABLED =====
+      // These cause too many false positives and artist/song reversals
+      // Use manual tags instead: [song: Title | artist: Artist]
+      
       /*
-      const listeningPattern = /(?:listening to|playing|heard|love)\s+["']?([A-Z][a-zA-Z\s']+)["']?/gi;
-      while ((match = listeningPattern.exec(content)) !== null) {
-        const title = match[1].trim();
-        const key = title.toLowerCase();
-        
-        // Only if not already captured with artist
-        if (!seenSongs.has(key) && title.length > 2 && title.length < 30) {
-          songs.push({ title });
-          seenSongs.add(key);
-        }
-      }
+      // Pattern 1: "Song Title" by Artist - DISABLED (too many false positives)
+      // Pattern 2: Song - Artist format - DISABLED (catches non-songs)
+      // Pattern 3: Artist's "Song" - DISABLED (reverses artist/song)
+      // Pattern 4: "listening to" - DISABLED (catches everything)
       */
 
       // Pattern 5: Known songs from your history
