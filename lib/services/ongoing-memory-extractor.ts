@@ -101,8 +101,9 @@ export class OngoingMemoryExtractor {
                            'Starting', 'Running', 'Moving', 'Living', 'Giving', 'Finding',
                            'Telling', 'Turning', 'Leaving', 'Bringing', 'Holding', 'Writing',
                            'Standing', 'Sitting', 'Showing', 'Hearing', 'Playing', 'Happening',
-                           'Drawn', 'Seen', 'Done', 'Gone', 'Been', 'Had', 'Made', 'Said'];
-      if (name && !excludeWords.includes(name)) {
+                           'Drawn', 'Seen', 'Done', 'Gone', 'Been', 'Had', 'Made', 'Said',
+                           'Here', 'Ready', 'Sure', 'Fine', 'Okay'];
+      if (name && !excludeWords.includes(name) && name.length >= 3) {
         memories.push({
           type: 'fact',
           content: `Name: ${name}`,
