@@ -21,8 +21,8 @@ interface ExtractedMemory {
   tags: string[];
   importance_score: number;
   source: 'conversation';
-  timestamp: string; // When this was mentioned
-  context?: string; // Optional: surrounding conversation context
+  timestamp: string;
+  context?: string;
 }
 
 export class OngoingMemoryExtractor {
@@ -63,19 +63,19 @@ export class OngoingMemoryExtractor {
     const memories: ExtractedMemory[] = [];
     const timestamp = new Date().toISOString();
     
-    // Pattern 1: Explicit facts ("I am...", "My name is...")
+    // Pattern 1: Explicit facts
     memories.push(...this.extractFacts(context, timestamp));
     
-    // Pattern 2: Preferences ("I love...", "I hate...", "My favorite...")
+    // Pattern 2: Preferences
     memories.push(...this.extractPreferences(context, timestamp));
     
-    // Pattern 3: Experiences ("I went to...", "I did...", "I saw...")
+    // Pattern 3: Experiences
     memories.push(...this.extractExperiences(context, timestamp));
     
-    // Pattern 4: Current activities ("I'm working on...", "I'm building...")
+    // Pattern 4: Current activities
     memories.push(...this.extractCurrentActivities(context, timestamp));
     
-    // Pattern 5: Relationships ("My wife...", "My daughter...")
+    // Pattern 5: Relationships
     memories.push(...this.extractRelationships(context, timestamp));
     
     // Deduplicate
@@ -100,7 +100,8 @@ export class OngoingMemoryExtractor {
           category: 'personal',
           tags: ['name', 'identity'],
           importance_score: 1.0,
-          source: 'conversation'
+          source: 'conversation',
+          timestamp: timestamp
         });
       }
     }
@@ -115,7 +116,8 @@ export class OngoingMemoryExtractor {
         category: 'personal',
         tags: ['age', 'personal'],
         importance_score: 0.9,
-        source: 'conversation'
+        source: 'conversation',
+        timestamp: timestamp
       });
     }
     
@@ -130,7 +132,8 @@ export class OngoingMemoryExtractor {
           category: 'personal',
           tags: ['location', 'home'],
           importance_score: 0.8,
-          source: 'conversation'
+          source: 'conversation',
+          timestamp: timestamp
         });
       }
     }
@@ -146,7 +149,8 @@ export class OngoingMemoryExtractor {
           category: 'work',
           tags: ['work', 'career', 'profession'],
           importance_score: 0.85,
-          source: 'conversation'
+          source: 'conversation',
+          timestamp: timestamp
         });
       }
     }
@@ -196,7 +200,7 @@ export class OngoingMemoryExtractor {
       }
     }
     
-    // General likes/dislikes
+    // General likes
     const likePattern = /I (?:really\s+)?(?:love|enjoy|like)\s+([a-z][a-z\s]+?)(?:\.|,|!|\n|$)/gi;
     while ((match = likePattern.exec(context)) !== null) {
       const thing = match[1]?.trim();
@@ -356,10 +360,10 @@ export class OngoingMemoryExtractor {
       const embedding = embeddingResponse.data[0].embedding;
       
       // Check if similar memory already exists
-      const { data: existing } = await supabase.rpc('search_memories', {
+      const { data: existing } = await supabase.rpc('match_memories', {
         query_embedding: embedding,
-        agent_id: agentId,
-        match_threshold: 0.95, // Very high threshold for deduplication
+        filter_agent_id: agentId,
+        match_threshold: 0.95,
         match_count: 1
       });
       
@@ -380,8 +384,8 @@ export class OngoingMemoryExtractor {
           importance_score: memory.importance_score,
           embedding: embedding,
           privacy: 'private',
-          mentioned_at: memory.timestamp || new Date().toISOString(),
-          last_mentioned: memory.timestamp || new Date().toISOString(),
+          mentioned_at: memory.timestamp,
+          last_mentioned: memory.timestamp,
           mention_count: 1,
           metadata: {
             source: memory.source,
@@ -403,71 +407,6 @@ export class OngoingMemoryExtractor {
     } catch (error) {
       console.error('[Memory] Exception saving memory:', error);
       return false;
-    }
-  }
-  
-  /**
-   * Optional: Extract using AI (more comprehensive but costs $)
-   */
-  static async extractWithAI(
-    messages: Message[],
-    agentId: string,
-    userId: string
-  ): Promise<number> {
-    try {
-      const context = messages
-        .map(m => `${m.role === 'user' ? 'User' : 'EVE'}: ${m.content}`)
-        .join('\n\n');
-      
-      const prompt = `Extract key memories from this conversation. Focus on facts, preferences, experiences, and relationships.
-
-Conversation:
-${context}
-
-Extract memories in this JSON format:
-{
-  "memories": [
-    {
-      "type": "fact|preference|experience|context",
-      "content": "Brief description",
-      "category": "personal|music|work|relationship|etc",
-      "tags": ["tag1", "tag2"],
-      "importance_score": 0.0-1.0
-    }
-  ]
-}
-
-Only extract NEW and UNIQUE information. Skip generic responses.`;
-
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          { role: 'system', content: 'You are a memory extraction specialist.' },
-          { role: 'user', content: prompt }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-      });
-      
-      const result = JSON.parse(completion.choices[0].message.content || '{}');
-      const memories = result.memories || [];
-      
-      let savedCount = 0;
-      for (const memory of memories) {
-        const extracted: ExtractedMemory = {
-          ...memory,
-          source: 'ai-extraction'
-        };
-        const saved = await this.saveMemory(extracted, agentId, userId);
-        if (saved) savedCount++;
-      }
-      
-      console.log(`[AI Memory] Extracted ${savedCount} memories`);
-      return savedCount;
-      
-    } catch (error) {
-      console.error('[AI Memory] Error:', error);
-      return 0;
     }
   }
 }
